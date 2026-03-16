@@ -1,0 +1,146 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+    /* Cotiza App Light Theme System */
+    --background: #F8F9FA;
+    --foreground: #0F0B1F;
+    
+    --card: #FFFFFF;
+    --card-foreground: #0F0B1F;
+    
+    --popover: #FFFFFF;
+    --popover-foreground: #0F0B1F;
+    
+    --primary: #4A35E9;
+    --primary-foreground: #FFFFFF;
+    
+    --secondary: #E9E6FF;  
+    --secondary-foreground: #4A35E9;
+    
+    --muted: #F1F3F5;
+    --muted-foreground: #6B7280;
+    
+    --accent: #F1F3F5;
+    --accent-foreground: #0F0B1F;
+    
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    
+    --border: #E5E7EB;
+    --input: #F3F4F6;
+    --ring: #4A35E9;
+    
+    --radius: 1rem; /* Base 16px */
+}
+
+.dark {
+    /* Cotiza App Dark Theme System */
+    --background: #0F0B1F;
+    --foreground: #FFFFFF;
+    
+    --card: #171332;
+    --card-foreground: #FFFFFF;
+    
+    --popover: #171332;
+    --popover-foreground: #FFFFFF;
+    
+    --primary: #4A35E9;
+    --primary-foreground: #FFFFFF;
+    
+    --secondary: #6B5CFF;
+    --secondary-foreground: #FFFFFF;
+    
+    --muted: #1E1A3F;
+    --muted-foreground: #9AA0B4;
+    
+    --accent: #8B7BFF;
+    --accent-foreground: #FFFFFF;
+    
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    
+    --border: #2A2550;
+    --input: #171332;
+    --ring: #4A35E9;
+    
+    --radius: 1rem; /* Base 16px */
+}
+
+@theme inline {
+    --font-sans: var(--font-sans);
+    
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    
+    --radius-sm: 0.875rem; /* 14px */
+    --radius: 1rem;        /* 16px */
+    --radius-md: 1rem;     /* 16px */
+    --radius-lg: 1.25rem;  /* 20px */
+    --radius-xl: 1.5rem;   /* 24px */
+    
+    /* Custom spacing from guidelines */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Hide native number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;
+}
+
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+  
+  body {
+    background-color: transparent !important;
+  }
+  
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
