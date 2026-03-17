@@ -75,8 +75,8 @@ export default function PerfilPage() {
       <div className="p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
         
         {/* Profile Header */}
-        <div className="flex flex-col items-center pt-2 pb-4 space-y-3">
-          <div className="relative">
+        <div className="flex flex-col pt-2 pb-4 space-y-3">
+          <div className="relative mx-auto">
             <Avatar className="h-24 w-24 ring-4 ring-card shadow-xl">
               <AvatarImage src={profileImage || ""} />
               <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-2xl font-bold">ME</AvatarFallback>
@@ -114,17 +114,17 @@ export default function PerfilPage() {
           </div>
           <div className="text-center w-full">
             {isEditingInfo ? (
-              <div className="w-full max-w-sm mx-auto px-4 mt-2 space-y-3">
+              <div style={{ width: '100%', maxWidth: '24rem', margin: '0 auto', padding: '0.5rem 1rem' }}>
                 <input 
                   type="text"
-                  className="block w-full h-12 rounded-[14px] border border-border bg-muted/50 px-4 py-2 text-base font-semibold text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" 
+                  style={{ display: 'block', width: '100%', height: '48px', borderRadius: '14px', border: '1px solid var(--border)', backgroundColor: 'var(--muted)', padding: '8px 16px', fontSize: '16px', fontWeight: 600, textAlign: 'center', color: 'var(--foreground)', outline: 'none', marginBottom: '12px' }}
                   placeholder="Nombre del estudio"
                   value={profileData.name}
                   onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                 />
                 <input 
                   type="text"
-                  className="block w-full h-12 rounded-[14px] border border-border bg-muted/50 px-4 py-2 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" 
+                  style={{ display: 'block', width: '100%', height: '48px', borderRadius: '14px', border: '1px solid var(--border)', backgroundColor: 'var(--muted)', padding: '8px 16px', fontSize: '14px', textAlign: 'center', color: 'var(--foreground)', outline: 'none' }}
                   placeholder="Especialidad (ej: Diseño Gráfico & UI/UX)"
                   value={profileData.subtitle}
                   onChange={(e) => setProfileData({...profileData, subtitle: e.target.value})}
