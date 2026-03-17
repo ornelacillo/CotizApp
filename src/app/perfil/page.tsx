@@ -114,14 +114,16 @@ export default function PerfilPage() {
           </div>
           <div className="text-center w-full">
             {isEditingInfo ? (
-              <div className="flex flex-col gap-2 mt-2 items-center w-full max-w-xs mx-auto">
+              <div className="flex flex-col gap-3 mt-2 items-center w-full max-w-sm mx-auto px-4">
                 <Input 
-                  className="h-8 text-center" 
+                  className="h-10 text-center text-base font-semibold px-4 w-full bg-muted/50 border-border text-foreground placeholder:text-muted-foreground" 
+                  placeholder="Nombre del estudio"
                   value={profileData.name}
                   onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                 />
                 <Input 
-                  className="h-8 text-center text-sm" 
+                  className="h-10 text-center text-sm px-4 w-full bg-muted/50 border-border text-foreground placeholder:text-muted-foreground" 
+                  placeholder="Especialidad (ej: Diseño Gráfico)"
                   value={profileData.subtitle}
                   onChange={(e) => setProfileData({...profileData, subtitle: e.target.value})}
                 />

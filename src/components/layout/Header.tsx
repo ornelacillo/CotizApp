@@ -82,7 +82,7 @@ export function Header({
                     className="h-8 w-8 ring-2 cursor-pointer transition-colors hover:opacity-80"
                     style={{ '--tw-ring-color': mounted && profileData?.primaryColor ? profileData.primaryColor : 'var(--border)' } as React.CSSProperties}
                   >
-                    <AvatarImage src="" alt="Profile" />
+                    <AvatarImage src={mounted && profileData?.logo ? profileData.logo : ''} alt="Profile" />
                     <AvatarFallback 
                       className="text-xs font-semibold text-white"
                       style={{ backgroundColor: mounted && profileData?.primaryColor ? profileData.primaryColor : 'var(--card)' }}
