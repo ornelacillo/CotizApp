@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Plus, Filter, MoreVertical } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -13,10 +15,22 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 // Status badge color mapping
+const statusMap: Record<string, string> = {
+  'draft': 'Borrador',
+  'sent': 'Enviado',
+  'viewed': 'Visto',
+  'accepted': 'Aceptado',
+  'rejected': 'Rechazado',
+  'expired': 'Expirado'
+};
+
+const getUIStatus = (dbStatus: string) => statusMap[dbStatus] || 'Borrador';
+
 const getStatusStyle = (status: string) => {
   switch (status) {
     case 'Pendiente': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20';
     case 'Enviado': return 'text-green-500 bg-green-500/10 border-green-500/20';
+    case 'Visto': return 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20';
     case 'Aceptado': return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
     case 'Borrador': return 'text-muted-foreground bg-muted border-border';
     case 'Rechazado': return 'text-red-500 bg-red-500/10 border-red-500/20';
@@ -24,52 +38,84 @@ const getStatusStyle = (status: string) => {
   }
 };
 
-// Mock Data
-const initialAllBudgets = [
-  ...Array.from({ length: 6 }).map((_, i) => ({
-    id: String(i + 1),
-    folio: `COT-00${i + 1}`,
-    client: i % 3 === 0 ? 'Acme Corp' : i % 3 === 1 ? 'TechStart Inc.' : 'Desarrollos Residenciales',
-    clientInitial: i % 3 === 0 ? 'A' : i % 3 === 1 ? 'T' : 'D',
-    amount: i % 3 === 0 ? '$145,000' : i % 3 === 1 ? '$85,500' : '$45,000',
-    date: `1${2 + i} Mar 2026`,
-    status: i % 4 === 0 ? 'Pendiente' : i % 4 === 1 ? 'Enviado' : i % 4 === 2 ? 'Aceptado' : 'Borrador',
-  }))
-];
-
 const filters = ['Todos', 'Borradores', 'Pendientes', 'Enviados', 'Aceptados'];
 
 export default function PresupuestosPage() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState('Todos');
-  const [allBudgets, setAllBudgets] = useState(initialAllBudgets);
+  const [allBudgets, setAllBudgets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Read local drafts and combine with mock data
-    const savedDrafts = localStorage.getItem('cotiza_drafts');
-    if (savedDrafts) {
-      try {
-        const parsedDrafts = JSON.parse(savedDrafts);
-        setAllBudgets([...parsedDrafts, ...initialAllBudgets]);
-      } catch (e) {
-        console.error("Failed to parse drafts");
-      }
-    }
+    fetchBudgets();
   }, []);
 
-  const handleDeleteBudget = (id: string, clientName: string) => {
+  const fetchBudgets = async () => {
+    setLoading(true);
+    const supabase = createClient();
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('budgets')
+      .select(`
+        *,
+        clients (
+          nombre,
+          email
+        ),
+        budget_versions (
+          total,
+          project_description
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      const formatted = data.map((b: any) => {
+        // Get the latest version total
+        const latestVersion = b.budget_versions?.[0]; // Usually just one for now
+        return {
+          id: b.id,
+          folio: `COT-${b.id.slice(0, 4).toUpperCase()}`,
+          client: b.clients?.nombre || 'Sin cliente',
+          clientInitial: (b.clients?.nombre || 'C').charAt(0).toUpperCase(),
+          amount: latestVersion?.total ? `$${latestVersion.total.toLocaleString('es-AR')}` : '$0',
+          date: new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(b.created_at)),
+          status: getUIStatus(b.estado_actual),
+        };
+      });
+      
+      // Combine with local drafts if any (optional, but good for UX transitions)
+      const savedDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
+      setAllBudgets([...savedDrafts, ...formatted]);
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteBudget = async (id: string, clientName: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar el presupuesto de ${clientName}?`)) {
+      const supabase = createClient();
+      
+      // If it's a real Supabase ID (UUID usually), delete from DB
+      if (id.length > 20) { 
+        const { error } = await supabase.from('budgets').delete().eq('id', id);
+        if (error) {
+          toast.error("Error al eliminar el presupuesto");
+          return;
+        }
+      }
+
+      // Filter locally
       setAllBudgets(prev => prev.filter(budget => budget.id !== id));
       
-      // Also attempt to remove from localStorage if it's a draft
-      const savedDrafts = localStorage.getItem('cotiza_drafts');
-      if (savedDrafts) {
-        try {
-          const parsedDrafts = JSON.parse(savedDrafts);
-          const newDrafts = parsedDrafts.filter((d: any) => d.id !== id);
-          localStorage.setItem('cotiza_drafts', JSON.stringify(newDrafts));
-        } catch(e) {}
-      }
+      // Also remove from localStorage if it exists
+      const savedDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
+      const newDrafts = savedDrafts.filter((d: any) => d.id !== id);
+      localStorage.setItem('cotiza_drafts', JSON.stringify(newDrafts));
+      
+      toast.success("Presupuesto eliminado");
     }
   };
 

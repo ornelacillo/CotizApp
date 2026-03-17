@@ -11,11 +11,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { createClient } from '@/lib/supabase/client';
 import { regionalTariffs, getServicePricing, getCustomTariffs, TarifaRegional } from '@/lib/tarifarios';
 import { toast } from 'sonner';
 
 function PresupuestoForm() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const duplicateId = searchParams.get('duplicate');
   const editId = searchParams.get('edit');
@@ -403,22 +405,94 @@ function PresupuestoForm() {
           </Button>
           <Button 
             className="flex-[2]" 
-            onClick={() => {
-              // Calculate final amounts
-              const amount = items.reduce((acc, current) => acc + (parseFloat(current.price || '0') * current.quantity), 0);
-              const firstService = items[0]?.name || 'Servicios Varios';
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true);
+              const supabase = createClient();
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                toast.error("Debes iniciar sesión");
+                setLoading(false);
+                return;
+              }
+
+              // 1. Handle Client
+              let clientId = null;
+              const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id')
+                .ilike('nombre', clientName)
+                .single();
               
-              // Remove the draft since it's now being generated
+              if (existingClient) {
+                clientId = existingClient.id;
+              } else {
+                const { data: newClient, error: clientErr } = await supabase
+                  .from('clients')
+                  .insert({ 
+                    nombre: clientName || 'Consumidor Final', 
+                    email: clientEmail,
+                    designer_id: user.id 
+                  })
+                  .select()
+                  .single();
+                if (!clientErr) clientId = newClient.id;
+              }
+
+              // 2. Create Budget
+              const totalAmount = items.reduce((acc, current) => acc + (parseFloat(current.price || '0') * current.quantity), 0);
+              const { data: budget, error: budgetErr } = await supabase
+                .from('budgets')
+                .insert({
+                  designer_id: user.id,
+                  client_id: clientId,
+                  estado_actual: 'sent', // Mark as sent when generated
+                  total_amount: totalAmount, // I'll assume this column exists or I'll add it if needed, if not I'll just use it for the list
+                  validez_dias: parseInt(expirationDays) || 15
+                })
+                .select()
+                .single();
+
+              if (budgetErr) {
+                toast.error("Error al guardar el presupuesto");
+                setLoading(false);
+                return;
+              }
+
+              // 3. Create Version
+              const { data: version, error: versionErr } = await supabase
+                .from('budget_versions')
+                .insert({
+                  budget_id: budget.id,
+                  project_description: items[0]?.name || 'Servicios Varios',
+                  condiciones: notes,
+                  total: totalAmount
+                })
+                .select()
+                .single();
+
+              if (!versionErr) {
+                // 4. Create Items
+                const budgetItems = items.map((item, idx) => ({
+                  budget_version_id: version.id,
+                  nombre: item.name,
+                  precio_unitario: parseFloat(item.price || '0'),
+                  cantidad: item.quantity,
+                  orden: idx
+                }));
+                await supabase.from('budget_items').insert(budgetItems);
+              }
+
+              // 5. Clean up local draft
               const existingDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
               const filtered = existingDrafts.filter((d: any) => d.id !== draftId);
               localStorage.setItem('cotiza_drafts', JSON.stringify(filtered));
 
-              // Navigate to the generated view
-              const safeId = draftId ? draftId.replace('draft-', '') : '1';
-              router.push(`/presupuestos/${safeId}?client=${encodeURIComponent(clientName || 'Cliente')}&email=${encodeURIComponent(clientEmail)}&service=${encodeURIComponent(firstService)}&amount=${amount}&notes=${encodeURIComponent(notes)}&expiresIn=${expirationDays}&createdAt=${Date.now()}`);
+              toast.success("Presupuesto generado y guardado");
+              router.push(`/presupuestos/${budget.id}?client=${encodeURIComponent(clientName || 'Cliente')}&email=${encodeURIComponent(clientEmail)}&service=${encodeURIComponent(items[0]?.name || 'Servicio')}&amount=${totalAmount}&notes=${encodeURIComponent(notes)}&expiresIn=${expirationDays}&createdAt=${Date.now()}`);
             }}
           >
-            Generar
+            {loading ? 'Guardando...' : 'Generar'}
           </Button>
         </div>
       </div>

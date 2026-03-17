@@ -10,75 +10,87 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-
-// Mock Data
-const metrics = [
-  { id: 'enviados', label: 'Enviados', value: '12', icon: Send, color: 'text-primary', bg: 'bg-primary/10' },
-  { id: 'vistos', label: 'Vistos', value: '8', icon: Eye, color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10' },
-  { id: 'aceptados', label: 'Aceptados', value: '4', icon: CheckCircle, color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10' },
-  { id: 'rechazados', label: 'Rechazados', value: '1', icon: XCircle, color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10' },
-];
-
-const initialRecentBudgets = [
-  {
-    id: '1',
-    folio: 'COT-001',
-    client: 'Acme Corp',
-    clientInitial: 'A',
-    amount: '$145,000',
-    date: '12 Mar 2026',
-    status: 'Enviado',
-    statusColor: 'text-primary bg-primary/10 border-primary/20',
-  },
-  {
-    id: '2',
-    folio: 'COT-002',
-    client: 'TechStart Inc.',
-    clientInitial: 'T',
-    amount: '$85,500',
-    date: '10 Mar 2026',
-    status: 'Aceptado',
-    statusColor: 'text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/20',
-  },
-  {
-    id: '3',
-    folio: 'COT-003',
-    client: 'Juan Pérez',
-    clientInitial: 'J',
-    amount: '$32,000',
-    date: '05 Mar 2026',
-    status: 'Visto',
-    statusColor: 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20',
-  },
-];
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [recentBudgets, setRecentBudgets] = useState(initialRecentBudgets);
+  const [recentBudgets, setRecentBudgets] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState([
+    { id: 'enviados', label: 'Enviados', value: '0', icon: Send, color: 'text-primary', bg: 'bg-primary/10', dbStatus: 'sent' },
+    { id: 'vistos', label: 'Vistos', value: '0', icon: Eye, color: 'text-[#F59E0B]', bg: 'bg-[#F59E0B]/10', dbStatus: 'viewed' },
+    { id: 'aceptados', label: 'Aceptados', value: '0', icon: CheckCircle, color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10', dbStatus: 'accepted' },
+    { id: 'rechazados', label: 'Rechazados', value: '0', icon: XCircle, color: 'text-[#EF4444]', bg: 'bg-[#EF4444]/10', dbStatus: 'rejected' },
+  ]);
 
   useEffect(() => {
-    const draftsString = localStorage.getItem('cotiza_drafts');
-    if (draftsString) {
-      try {
-        const drafts = JSON.parse(draftsString);
-        if (Array.isArray(drafts) && drafts.length > 0) {
-          setRecentBudgets(prev => {
-            const draftsCount = drafts.length;
-            const updated = [...drafts, ...prev].slice(0, Math.max(3, draftsCount));
-            // Remove duplicates by ID just in case
-            const unique = updated.filter((v,i,a)=>a.findIndex(v2=>(v2.id===v.id))===i);
-            return unique;
-          });
-        }
-      } catch (e) {
-        console.error('Error parsing drafts:', e);
-      }
-    }
+    fetchDashboardData();
   }, []);
 
-  const handleDeleteBudget = (id: string, clientName: string) => {
+  const fetchDashboardData = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Fetch recent budgets
+    const { data: budgetsData, error: budgetsError } = await supabase
+      .from('budgets')
+      .select(`
+        *,
+        clients (
+          nombre,
+          email
+        ),
+        budget_versions (
+          total
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (!budgetsError && budgetsData) {
+      const formatted = budgetsData.map((b: any) => {
+        const latestVersion = b.budget_versions?.[0];
+        return {
+          id: b.id,
+          folio: `COT-${b.id.slice(0, 4).toUpperCase()}`,
+          client: b.clients?.nombre || 'Sin cliente',
+          clientInitial: (b.clients?.nombre || 'C').charAt(0).toUpperCase(),
+          amount: latestVersion?.total ? `$${latestVersion.total.toLocaleString('es-AR')}` : '$0',
+          date: new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(b.created_at)),
+          status: b.estado_actual === 'sent' ? 'Enviado' : b.estado_actual === 'accepted' ? 'Aceptado' : b.estado_actual === 'viewed' ? 'Visto' : 'Borrador',
+          statusColor: b.estado_actual === 'sent' ? 'text-primary bg-primary/10 border-primary/20' : 
+                       b.estado_actual === 'accepted' ? 'text-[#22C55E] bg-[#22C55E]/10 border-[#22C55E]/20' :
+                       b.estado_actual === 'viewed' ? 'text-[#F59E0B] bg-[#F59E0B]/10 border-[#F59E0B]/20' :
+                       'text-muted-foreground bg-muted border-border'
+        };
+      });
+      setRecentBudgets(formatted);
+    }
+
+    // Fetch metric counts
+    const { data: counts, error: countsError } = await supabase
+      .from('budgets')
+      .select('estado_actual');
+
+    if (!countsError && counts) {
+      setMetrics(prev => prev.map(m => ({
+        ...m,
+        value: counts.filter((c: any) => m.dbStatus.includes(c.estado_actual)).length.toString()
+      })));
+    }
+  };
+
+  const handleDeleteBudget = async (id: string, clientName: string) => {
     if (confirm(`¿Estás seguro de que deseas eliminar el presupuesto de ${clientName}?`)) {
+      const supabase = createClient();
+      const { error } = await supabase.from('budgets').delete().eq('id', id);
+      if (error) {
+        toast.error("Error al eliminar");
+        return;
+      }
       setRecentBudgets(prev => prev.filter(budget => budget.id !== id));
+      toast.success("Eliminado");
     }
   };
 
