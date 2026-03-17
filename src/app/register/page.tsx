@@ -19,13 +19,20 @@ export default function RegisterPage() {
   const router = useRouter();
 
   const getURL = () => {
+    // If we're on a known production domain, use it.
     if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname === 'cotizapp.xyz') {
+        return 'https://cotizapp.xyz/';
+      }
       return window.location.origin + '/';
     }
+    
     let url =
       process?.env?.NEXT_PUBLIC_SITE_URL ?? 
       process?.env?.NEXT_PUBLIC_VERCEL_URL ?? 
       'http://localhost:3000/';
+    
     url = url.includes('http') ? url : `https://${url}`;
     url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
     return url;
