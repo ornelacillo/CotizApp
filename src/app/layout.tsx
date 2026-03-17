@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -29,6 +30,7 @@ export default function RootLayout({
           {children}
           <Toaster position="top-center" />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
