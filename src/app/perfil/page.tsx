@@ -114,16 +114,18 @@ export default function PerfilPage() {
           </div>
           <div className="text-center w-full">
             {isEditingInfo ? (
-              <div className="flex flex-col gap-3 mt-2 items-center w-full max-w-sm mx-auto px-4">
-                <Input 
-                  className="h-10 text-center text-base font-semibold px-4 w-full bg-muted/50 border-border text-foreground placeholder:text-muted-foreground" 
+              <div className="w-full max-w-sm mx-auto px-4 mt-2 space-y-3">
+                <input 
+                  type="text"
+                  className="block w-full h-12 rounded-[14px] border border-border bg-muted/50 px-4 py-2 text-base font-semibold text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" 
                   placeholder="Nombre del estudio"
                   value={profileData.name}
                   onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                 />
-                <Input 
-                  className="h-10 text-center text-sm px-4 w-full bg-muted/50 border-border text-foreground placeholder:text-muted-foreground" 
-                  placeholder="Especialidad (ej: Diseño Gráfico)"
+                <input 
+                  type="text"
+                  className="block w-full h-12 rounded-[14px] border border-border bg-muted/50 px-4 py-2 text-sm text-center text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm" 
+                  placeholder="Especialidad (ej: Diseño Gráfico & UI/UX)"
                   value={profileData.subtitle}
                   onChange={(e) => setProfileData({...profileData, subtitle: e.target.value})}
                 />
