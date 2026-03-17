@@ -3,7 +3,7 @@
 import { PageWrapper } from '@/components/layout/PageWrapper';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link2, Download, FileText, Check, ChevronLeft, AlertCircle } from 'lucide-react';
+import { Link2, Download, FileText, Check, ChevronLeft, AlertCircle, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -149,10 +149,10 @@ export default function GeneradoPresupuestoPage() {
       >
         
         {/* Designer Profile Presentation */}
-        <div className="text-center pt-4 pb-2 space-y-3">
+        <div className="text-center pt-2 pb-2 space-y-3">
           <Avatar 
-            className="h-20 w-20 mx-auto ring-4 shadow-xl"
-            style={{ '--tw-ring-color': mounted ? `${primaryColor}33` : 'rgba(var(--primary), 0.2)' } as React.CSSProperties}
+            className="h-20 w-20 mx-auto ring-2 ring-offset-2 ring-offset-background"
+            style={{ '--tw-ring-color': mounted ? primaryColor : 'var(--primary)' } as React.CSSProperties}
           >
             <AvatarImage src={mounted && logo ? logo : ""} />
             <AvatarFallback 
@@ -163,87 +163,101 @@ export default function GeneradoPresupuestoPage() {
             </AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="font-bold text-2xl tracking-tight text-foreground">{mounted ? designerName : 'Design Studio'}</h2>
-            <p className="font-medium text-sm" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>Cotización COT-00{id} • {mounted ? designerSubtitle : 'Diseño Gráfico'}</p>
+            <h2 className="font-bold text-xl tracking-tight text-foreground">{mounted ? designerName : 'Design Studio'}</h2>
+            <p className="font-medium text-[13px] text-muted-foreground">{mounted ? designerSubtitle : 'Diseño Gráfico'}</p>
+            <p className="text-[11px] font-medium mt-1" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>Ref: #COT-00{id}</p>
           </div>
         </div>
 
-        {/* Client Info Minimal */}
-        <div className="rounded-2xl border border-border/60 p-4 bg-muted/10 text-center">
-          <p className="text-sm text-muted-foreground mb-1">Preparado para</p>
-          <p className="font-semibold text-lg text-foreground">{clientNameStr}</p>
-          <p className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>{currentDate}</p>
-        </div>
-
-        {/* Services Detail Card */}
-        <Card className="p-0 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-          <div className="p-5 border-b border-border/50 bg-gradient-to-br from-card to-muted/20">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <FileText className="w-4 h-4" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }} />
-              Detalle de Servicios
-            </h3>
-          </div>
-          
-          <div className="divide-y divide-border/30">
-            <div className="p-5 flex justify-between items-start hover:bg-muted/10 transition-colors">
-              <div className="space-y-1.5 flex-1 pr-4">
-                <p className="font-semibold text-[15px]">{serviceName}</p>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">Servicio principal detallado en la cotización.</p>
-              </div>
-              <div className="text-right relative top-0.5">
-                <p className="font-bold text-[15px]">{formattedAmount}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div 
-            className="p-6 border-t border-border/30 flex justify-between items-center rounded-b-[20px]"
-            style={{ backgroundColor: mounted ? badgeBgColor : 'rgba(var(--primary), 0.05)' }}
-          >
-            <span className="font-medium text-foreground tracking-wide uppercase text-sm">Total a pagar</span>
-            <span 
-              className="font-black text-3xl drop-shadow-sm"
-              style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}
-            >{formattedAmount} <span className="text-xl font-bold text-muted-foreground/80 ml-1">ARS</span></span>
+        {/* Client Data Card */}
+        <Card className="p-5 space-y-4 border-border/50 bg-card/60 backdrop-blur-md rounded-[24px]">
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>
+            Datos del Cliente
+          </h3>
+          <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-3 text-[14px]">
+            <span className="text-muted-foreground">Cliente</span>
+            <span className="font-medium text-right text-foreground">{clientNameStr}</span>
+            <span className="text-muted-foreground">Email</span>
+            <span className="font-medium text-right text-foreground">{clientEmailStr || '-'}</span>
+            <span className="text-muted-foreground">Fecha</span>
+            <span className="font-medium text-right text-foreground">{currentDate}</span>
           </div>
         </Card>
 
-        {/* Notes/Terms */}
-        <div className="px-2">
-          <h4 className="text-sm font-semibold mb-2">Términos y Condiciones / Notas</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+        {/* Services Detail Card */}
+        <Card className="p-5 space-y-5 border-border/50 bg-card/60 backdrop-blur-md rounded-[24px] overflow-hidden">
+          <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>
+            Servicios Detallados
+          </h3>
+          <div className="flex justify-between items-start pt-1">
+            <div className="space-y-1 pr-4">
+              <p className="font-bold text-[15px]">{serviceName}</p>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">Servicio principal detallado en la cotización.</p>
+            </div>
+            <div className="text-right">
+              <p className="font-bold text-[15px]">{formattedAmount}</p>
+            </div>
+          </div>
+          
+          <div className="border-t border-dashed border-border/60 pt-4 flex justify-between items-center mt-2">
+            <span className="font-bold text-base">Total</span>
+            <span 
+              className="font-black text-[22px]"
+              style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}
+            >{formattedAmount}</span>
+          </div>
+        </Card>
+
+        {/* Notes Card */}
+        <Card className="p-5 space-y-3 border-border/50 bg-card/60 backdrop-blur-md rounded-[24px]">
+          <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>
+            <span className="text-lg leading-none mb-0.5">≡</span> Notas
+          </h3>
+          <p className="text-[14px] text-muted-foreground leading-relaxed whitespace-pre-wrap">
             {customNotes}
           </p>
-        </div>
+        </Card>
 
         {/* Spacer for bottom action bar */}
         <div className="h-32 w-full"></div>
 
       </div>
 
-      {/* Fixed Bottom Action for Public View */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-background/90 backdrop-blur-xl border-t border-border z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] print:hidden">
+      {/* Fixed Bottom Actions */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-background/95 backdrop-blur-xl border-t border-border z-40">
         <div className="w-full flex flex-col gap-3">
           <Button 
             onClick={handleCopyLink} 
-            className={copied ? "bg-green-600 hover:bg-green-700 text-white" : "text-white"}
+            className={`h-12 rounded-[16px] font-bold text-[15px] ${copied ? "bg-green-600 hover:bg-green-700 text-white" : "text-white"}`}
             style={!copied && mounted ? { backgroundColor: primaryColor } : undefined}
           >
             {copied ? (
               <><Check className="w-5 h-5 mr-2" /> Enlace copiado</>
             ) : (
-              <><Link2 className="w-5 h-5 mr-2" /> Copiar enlace para cliente</>
+              <><Link2 className="w-5 h-5 mr-2" /> Copiar enlace</>
             )}
           </Button>
-          <Button 
-            onClick={handleDownloadPdf}
-            variant="outline" 
-            className="border-border/60 hover:bg-muted/10"
-            style={mounted ? { color: isDarkTheme ? '#ffffff' : primaryColor } : undefined}
-          >
-            <Download className="w-5 h-5 mr-2" />
-            Descargar PDF
-          </Button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button 
+              onClick={handleDownloadPdf}
+              variant="outline" 
+              className="h-12 rounded-[16px] border-border/60 hover:bg-muted/10 font-bold bg-card"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              PDF
+            </Button>
+            
+            <Link href={`/presupuestos/${id}?action=mark_sent`} className="contents">
+              <Button 
+                variant="outline" 
+                className="h-12 rounded-[16px] border-border/60 hover:bg-muted/10 font-bold bg-card"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Enviado
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </PageWrapper>

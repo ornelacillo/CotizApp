@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Plus, Search, Mail, Phone, ExternalLink, StickyNote } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect } from 'react';
 
@@ -18,10 +18,10 @@ import {
 } from "@/components/ui/sheet";
 
 const initialClients = [
-  { id: 1, name: 'Acme Corp', contact: 'María González', email: 'maria@acme.com', phone: '+5491112345678', initial: 'A', notes: 'Cliente prioritario. Prefiere reuniones por la mañana.' },
-  { id: 2, name: 'TechStart Inc.', contact: 'Juan Pérez', email: 'juan@techstart.com', phone: '+5491123456789', initial: 'T', notes: 'Proyecto de re-branding en pausa hasta mayo.' },
-  { id: 3, name: 'Estudio Creativo', contact: 'Ana Silva', email: 'ana@estudioc.com', phone: '+5491134567890', initial: 'E', notes: '' },
-  { id: 4, name: 'Global Logistics', contact: 'Carlos Ruiz', email: 'cruiz@global.com', phone: '+5491145678901', initial: 'G', notes: '' },
+  { id: 1, name: 'Acme Corp', contact: 'María González', email: 'maria@acme.com', phone: '+5491112345678', initial: 'A', notes: 'Cliente prioritario. Prefiere reuniones por la mañana.', photo: '' },
+  { id: 2, name: 'TechStart Inc.', contact: 'Juan Pérez', email: 'juan@techstart.com', phone: '+5491123456789', initial: 'T', notes: 'Proyecto de re-branding en pausa hasta mayo.', photo: '' },
+  { id: 3, name: 'Estudio Creativo', contact: 'Ana Silva', email: 'ana@estudioc.com', phone: '+5491134567890', initial: 'E', notes: '', photo: '' },
+  { id: 4, name: 'Global Logistics', contact: 'Carlos Ruiz', email: 'cruiz@global.com', phone: '+5491145678901', initial: 'G', notes: '', photo: '' },
 ];
 
 export default function ClientesPage() {
@@ -42,6 +42,20 @@ export default function ClientesPage() {
     const updated = clients.map(c => c.id === id ? { ...c, notes: newNote } : c);
     setClients(updated);
     localStorage.setItem('cotiza_clients', JSON.stringify(updated));
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, clientId: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const updated = clients.map(c => c.id === clientId ? { ...c, photo: base64String } : c);
+        setClients(updated);
+        localStorage.setItem('cotiza_clients', JSON.stringify(updated));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -72,6 +86,7 @@ export default function ClientesPage() {
               <Sheet>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 border border-border/50">
+                    <AvatarImage src={client.photo || ""} />
                     <AvatarFallback className="bg-muted text-foreground font-semibold">
                       {client.initial}
                     </AvatarFallback>
@@ -100,11 +115,24 @@ export default function ClientesPage() {
                 <SheetContent side="bottom" className="h-[80vh] sm:h-auto sm:max-h-[85vh] rounded-t-xl sm:border-l sm:rounded-l-xl sm:rounded-t-none">
                   <SheetHeader className="text-left space-y-4 pb-4 border-b">
                     <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16 border-2 border-border/50 shadow-sm">
-                        <AvatarFallback className="bg-muted text-foreground font-semibold text-xl">
-                          {client.initial}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative group cursor-pointer">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          onChange={(e) => handlePhotoUpload(e, client.id)}
+                          title="Cambiar foto del cliente"
+                        />
+                        <Avatar className="h-16 w-16 border-2 border-border/50 shadow-sm relative overflow-hidden group-hover:opacity-80 transition-opacity">
+                          <AvatarImage src={client.photo || ""} />
+                          <AvatarFallback className="bg-muted text-foreground font-semibold text-xl">
+                            {client.initial}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full pointer-events-none">
+                          <span className="text-[9px] text-white font-semibold text-center leading-tight">Cambiar<br/>Foto</span>
+                        </div>
+                      </div>
                       <div>
                         <SheetTitle className="text-2xl font-bold">{client.name}</SheetTitle>
                         <p className="text-muted-foreground font-medium">{client.contact}</p>

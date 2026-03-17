@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -35,13 +36,8 @@ export default function SplashScreen() {
       
       {/* Central Logo Area */}
       <div className="flex flex-col items-center justify-center animate-pulse">
-        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/20 flex items-center justify-center mb-6">
-          <span className="text-white font-bold text-4xl">C</span>
-        </div>
+        <Image src="/logo.png" alt="CotizApp" width={80} height={80} className="mb-6 rounded-2xl" />
         <h1 className="text-4xl font-bold tracking-tight mb-2">CotizApp</h1>
-        <p className="text-sm tracking-[0.2em] text-muted-foreground uppercase font-semibold">
-          Business Intelligence
-        </p>
       </div>
 
       <div className="flex-1 flex flex-col justify-end w-full max-w-[200px] mx-auto items-center mb-10">

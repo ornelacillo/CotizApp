@@ -45,19 +45,32 @@ function PresupuestoForm() {
 
   useEffect(() => {
     if (targetId && !initialLoadDone) {
-      setClientName(targetClient || '');
-      setClientEmail(searchParams.get('email') || '');
-      setItems([{ 
-        id: Date.now(), 
-        name: `Servicios (Autocompletado visual)`, 
-        price: targetAmount || '', 
-        quantity: 1 
-      }]);
+      // 1. Try to load from localStorage drafts first
+      const existingDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
+      const draft = existingDrafts.find((d: any) => d.id === targetId);
+
+      if (draft && draft._rawData) {
+        setClientName(draft.client || targetClient || '');
+        setClientEmail(draft.clientEmail || searchParams.get('email') || '');
+        setItems(draft._rawData.items || [{ id: Date.now(), name: `Servicios (Autocompletado visual)`, price: targetAmount || '', quantity: 1}]);
+        setNotes(draft._rawData.notes || defaultNotesText);
+        setExpirationDays(draft._rawData.expiresIn || defaultExpiresIn);
+      } else {
+        // 2. Fallback to URL parameters if no draft exists
+        setClientName(targetClient || '');
+        setClientEmail(searchParams.get('email') || '');
+        setItems([{ 
+          id: Date.now(), 
+          name: `Servicios (Autocompletado visual)`, 
+          price: targetAmount || '', 
+          quantity: 1 
+        }]);
+      }
       setInitialLoadDone(true);
-    } else {
+    } else if (!targetId && !initialLoadDone) {
       setInitialLoadDone(true);
     }
-  }, [targetId, targetClient, targetAmount, searchParams, initialLoadDone]);
+  }, [targetId, targetClient, targetAmount, searchParams, initialLoadDone, defaultNotesText, defaultExpiresIn]);
 
   // Auto-save logic
   useEffect(() => {

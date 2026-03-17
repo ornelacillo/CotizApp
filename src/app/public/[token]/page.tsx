@@ -132,7 +132,7 @@ export default function PublicPresupuestoPage() {
       }}
     >
       <div 
-        className="p-4 md:p-6 pb-32 space-y-6 animate-in fade-in duration-700"
+        className="p-4 md:p-6 pb-32 print:pb-0 space-y-6 print:space-y-4 animate-in fade-in duration-700"
         style={{ fontFamily: mounted ? fontFamily : 'inherit' }}
       >
         

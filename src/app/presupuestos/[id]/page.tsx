@@ -217,37 +217,37 @@ export default function PresupuestoDetallePage() {
         </div> {/* End Printable Area */}
         
         {/* Spacer for bottom action bar */}
-        <div className="h-24 w-full"></div>
+        <div className="h-24 w-full print:hidden"></div>
 
       </div>
 
       {/* Fixed Bottom Actions */}
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-background/80 backdrop-blur-md border-t border-border z-40 print:hidden">
-        <div className="w-full grid grid-cols-4 gap-2">
-          <Link href={`/presupuestos/nuevo?edit=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}`} className="contents">
-            <Button variant="outline" className="flex flex-col gap-1 h-14 p-0">
-              <Edit2 className="h-4 w-4" />
-              <span className="text-[10px]">Editar</span>
+        <div className="w-full grid grid-cols-4 gap-1">
+          <Link href={`/presupuestos/nuevo?edit=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} className="contents">
+            <Button variant="ghost" className="flex flex-col gap-1 h-14 p-1 text-primary hover:bg-primary/10 hover:text-primary">
+              <Edit2 className="h-5 w-5" />
+              <span className="text-[10px] font-medium">Editar</span>
             </Button>
           </Link>
-          <Link href={`/presupuestos/nuevo?duplicate=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}`} className="contents">
-            <Button variant="outline" className="flex flex-col gap-1 h-14 p-0">
-              <Copy className="h-4 w-4" />
-              <span className="text-[10px]">Duplicar</span>
+          <Link href={`/presupuestos/nuevo?duplicate=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} className="contents">
+            <Button variant="ghost" className="flex flex-col gap-1 h-14 p-1 text-primary hover:bg-primary/10 hover:text-primary">
+              <Copy className="h-5 w-5" />
+              <span className="text-[10px] font-medium">Duplicar</span>
             </Button>
           </Link>
           <Button 
-            variant="outline" 
-            className="flex flex-col gap-1 h-14 p-0" 
+            variant="ghost" 
+            className="flex flex-col gap-1 h-14 p-1 text-primary hover:bg-primary/10 hover:text-primary" 
             onClick={handleDownloadPdf}
           >
-            <Download className="h-4 w-4" />
-            <span className="text-[10px]">PDF</span>
+            <Download className="h-5 w-5" />
+            <span className="text-[10px] font-medium">PDF</span>
           </Button>
           <Link href={`/presupuestos/${id}/generado?client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&service=${encodeURIComponent(serviceName)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}&createdAt=${createdAt}`} className="contents">
-            <Button className="flex flex-col gap-1 h-14 p-0">
+            <Button className="flex flex-col gap-1 h-14 p-1 rounded-xl shadow-md">
               <Send className="h-4 w-4" />
-              <span className="text-[10px]">Compartir</span>
+              <span className="text-[10px] font-medium">Compartir</span>
             </Button>
           </Link>
         </div>

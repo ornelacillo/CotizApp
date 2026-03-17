@@ -4,6 +4,7 @@ import { Bell, Menu } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { useEffect, useState } from 'react';
 
@@ -45,16 +46,13 @@ export function Header({
         <div className="flex items-center gap-4">
           {leftAction || (
             <div className="flex items-center gap-2">
-              <div 
-                className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{ 
-                  background: mounted && profileData?.primaryColor 
-                    ? profileData.primaryColor 
-                    : 'linear-gradient(to bottom right, var(--primary), var(--secondary))' 
-                }}
-              >
-                <span className="text-white font-bold text-sm">C</span>
-              </div>
+              <Image 
+                src="/logo.png" 
+                alt="CotizApp" 
+                width={32} 
+                height={32} 
+                className="rounded-lg"
+              />
               <h1 className="text-xl font-bold tracking-tight">{title}</h1>
             </div>
           )}
