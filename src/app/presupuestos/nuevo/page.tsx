@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { regionalTariffs, getServicePricing, getCustomTariffs, TarifaRegional } from '@/lib/tarifarios';
 import { toast } from 'sonner';
 
@@ -26,6 +27,7 @@ function PresupuestoForm() {
 
   const [clientName, setClientName] = useState(targetClient || '');
   const [clientEmail, setClientEmail] = useState(searchParams.get('email') || '');
+  const [clientPhoto, setClientPhoto] = useState('');
   const defaultExpiresIn = searchParams.get('expiresIn') || '15';
   const [expirationDays, setExpirationDays] = useState(defaultExpiresIn);
   
@@ -42,6 +44,20 @@ function PresupuestoForm() {
   useEffect(() => {
     setTariffs(getCustomTariffs());
   }, []);
+
+  // Sync with existing clients
+  useEffect(() => {
+    if (!clientName) {
+      setClientPhoto('');
+      return;
+    }
+    const savedClients = JSON.parse(localStorage.getItem('cotiza_clients') || '[]');
+    const existing = savedClients.find((c: any) => c.name.toLowerCase() === clientName.toLowerCase());
+    if (existing) {
+      setClientPhoto(existing.photo || '');
+      if (!clientEmail) setClientEmail(existing.email || '');
+    }
+  }, [clientName, clientEmail]);
 
   useEffect(() => {
     if (targetId && !initialLoadDone) {
@@ -101,6 +117,26 @@ function PresupuestoForm() {
 
     return () => clearTimeout(timeoutId);
   }, [clientName, clientEmail, items, notes, expirationDays, draftId, initialLoadDone]);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setClientPhoto(base64String);
+        
+        // Also update in clients list if it exists
+        const savedClients = JSON.parse(localStorage.getItem('cotiza_clients') || '[]');
+        const updated = savedClients.map((c: any) => 
+          c.name.toLowerCase() === clientName.toLowerCase() ? { ...c, photo: base64String } : c
+        );
+        localStorage.setItem('cotiza_clients', JSON.stringify(updated));
+        toast.success('Foto actualizada');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const addManualItem = () => {
     setItems([{ id: Date.now(), name: '', price: '', quantity: 1, serviceId: undefined }, ...items]);
@@ -170,9 +206,29 @@ function PresupuestoForm() {
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight text-foreground/90">Datos del cliente</h2>
           <Card className="p-4 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Nombre / Empresa *</label>
-              <Input placeholder="Ej: Acme Corp" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+            <div className="flex items-center gap-4">
+              <div className="relative group cursor-pointer shrink-0">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  onChange={handlePhotoUpload}
+                  title="Cambiar foto del cliente"
+                />
+                <Avatar className="h-14 w-14 border-2 border-border/50 shadow-sm relative overflow-hidden group-hover:opacity-80 transition-opacity">
+                  <AvatarImage src={clientPhoto || ""} />
+                  <AvatarFallback className="bg-muted text-foreground font-semibold text-lg">
+                    {(clientName || 'C').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full pointer-events-none">
+                  <span className="text-[8px] text-white font-semibold text-center leading-tight uppercase">Editar</span>
+                </div>
+              </div>
+              <div className="flex-1 space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Nombre / Empresa *</label>
+                <Input placeholder="Ej: Acme Corp" value={clientName} onChange={(e) => setClientName(e.target.value)} />
+              </div>
             </div>
             <div className="grid grid-cols-[2fr_1fr] gap-4">
               <div className="space-y-2">

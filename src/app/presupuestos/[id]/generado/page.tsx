@@ -100,6 +100,20 @@ export default function GeneradoPresupuestoPage() {
     navigator.clipboard.writeText(publicUrl).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      
+      // Look up client phone for WhatsApp
+      const savedClients = JSON.parse(localStorage.getItem('cotiza_clients') || '[]');
+      const client = savedClients.find((c: any) => c.name.toLowerCase() === clientNameStr.toLowerCase());
+      const phone = client?.phone?.replace(/[^0-9]/g, '') || '';
+      const message = encodeURIComponent(`¡Hola! 👋 Te comparto el presupuesto para ${serviceName}: ${publicUrl}`);
+      
+      // Abrir WhatsApp después de un breve delay para que el usuario vea el feedback de "copiado"
+      setTimeout(() => {
+        const whatsappUrl = phone 
+          ? `https://wa.me/${phone}?text=${message}`
+          : `https://wa.me/?text=${message}`;
+        window.open(whatsappUrl, '_blank');
+      }, 800);
     });
   };
 
