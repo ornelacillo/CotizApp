@@ -94,7 +94,10 @@ export default function PresupuestoDetallePage() {
         showNotifications: false,
         leftAction: (
           <div className="flex items-center gap-2">
-            <Link href="/presupuestos" className="text-muted-foreground hover:text-foreground">
+            <Link 
+              href={`/presupuestos/nuevo?edit=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} 
+              className="text-muted-foreground hover:text-foreground"
+            >
               <ChevronLeft className="h-6 w-6" />
             </Link>
             <h1 className="text-[20px] font-bold tracking-tight">Detalle</h1>
