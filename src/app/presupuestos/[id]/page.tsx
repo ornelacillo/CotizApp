@@ -10,6 +10,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import tinycolor from 'tinycolor2';
 import { useTheme } from 'next-themes';
+import { createClient } from '@/lib/supabase/client';
 
 export default function PresupuestoDetallePage() {
   const params = useParams();
@@ -33,13 +34,38 @@ export default function PresupuestoDetallePage() {
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('cotiza_designer_profile');
-    if (saved) {
-      try {
-        setProfileData(JSON.parse(saved));
-      } catch (e) {}
-    }
+    fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Fetch Profile
+    const { data: profile } = await supabase
+      .from('designer_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    // Fetch Branding
+    const { data: branding } = await supabase
+      .from('designer_branding')
+      .select('*')
+      .eq('designer_id', user.id)
+      .single();
+
+    if (profile && branding) {
+      setProfileData({
+        name: profile.nombre || '',
+        subtitle: profile.estudio_nombre || '',
+        primaryColor: branding.color_principal || '#6B5CFF',
+        fontFamily: branding.tipografia || 'Inter',
+        logo: branding.logo_path || ''
+      });
+    }
+  };
 
   const designerName = profileData?.name || 'Design Studio';
   const designerSubtitle = profileData?.subtitle || 'Diseño Gráfico & UI/UX';

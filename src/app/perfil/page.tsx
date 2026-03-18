@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Camera, Mail, Phone, MapPin, Building2, User, Save, Upload, Plus, Trash2, Globe, LogOut, Moon, Sun, Monitor, Bell, ChevronRight, X, Edit2, Instagram } from 'lucide-react';
+import { Camera, Mail, Phone, MapPin, Building2, User, Save, Upload, Plus, Trash2, Globe, LogOut, Moon, Sun, Monitor, Bell, ChevronRight, X, Edit2, Instagram, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
+import { createClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -18,37 +20,114 @@ export default function PerfilPage() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [profileData, setProfileData] = useState({
-    name: 'Design Studio',
-    subtitle: 'Diseño Gráfico & UI/UX',
-    email: 'hola@designstudio.com',
-    website: 'www.designstudio.com',
-    instagram: '@design.studio',
+    name: '',
+    subtitle: '',
+    email: '',
+    website: '',
+    instagram: '',
     primaryColor: '#6B5CFF',
     fontFamily: 'Inter',
-    logo: '' // Add logo to profileData
+    logo: ''
   });
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem('cotiza_designer_profile');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setProfileData(parsed);
-        if (parsed.logo) {
-          setProfileImage(parsed.logo);
-        }
-      } catch (e) {}
-    }
+    fetchProfile();
   }, []);
 
-  const handleSaveProfile = () => {
-    setIsEditingInfo(false);
-    localStorage.setItem('cotiza_designer_profile', JSON.stringify({ ...profileData, logo: profileImage }));
+  const fetchProfile = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    // Fetch Profile
+    const { data: profile, error: profileError } = await supabase
+      .from('designer_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    // Fetch Branding
+    const { data: branding, error: brandingError } = await supabase
+      .from('designer_branding')
+      .select('*')
+      .eq('designer_id', user.id)
+      .single();
+
+    if (!profileError && profile) {
+      setProfileData(prev => ({
+        ...prev,
+        name: profile.nombre || '',
+        subtitle: profile.estudio_nombre || '',
+        email: profile.email || '',
+        website: profile.sitio_web || '',
+      }));
+    }
+
+    if (!brandingError && branding) {
+      setProfileData(prev => ({
+        ...prev,
+        primaryColor: branding.color_principal || '#6B5CFF',
+        fontFamily: branding.tipografia || 'Inter',
+        instagram: (branding.redes_json as any)?.instagram || '',
+        logo: branding.logo_path || ''
+      }));
+      setProfileImage(branding.logo_path || null);
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Update Profile
+    const { error: profileError } = await supabase
+      .from('designer_profiles')
+      .update({
+        nombre: profileData.name,
+        estudio_nombre: profileData.subtitle,
+        email: profileData.email,
+        sitio_web: profileData.website,
+      })
+      .eq('id', user.id);
+
+    // Update Branding
+    const { error: brandingError } = await supabase
+      .from('designer_branding')
+      .update({
+        color_principal: profileData.primaryColor,
+        tipografia: profileData.fontFamily,
+        redes_json: { instagram: profileData.instagram },
+        logo_path: profileImage
+      })
+      .eq('designer_id', user.id);
+
+    if (profileError || brandingError) {
+      toast.error("Error al guardar cambios");
+    } else {
+      toast.success("Perfil actualizado");
+      setIsEditingInfo(false);
+    }
+    setIsSaving(false);
+  };
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
   const isDark = theme === 'dark';
@@ -58,10 +137,6 @@ export default function PerfilPage() {
       fileInputRef.current?.click();
       return;
     }
-  };
-
-  const handleLogout = () => {
-    router.push('/login');
   };
 
   return (
@@ -100,12 +175,7 @@ export default function PerfilPage() {
                   reader.onloadend = () => {
                     const base64String = reader.result as string;
                     setProfileImage(base64String);
-                    // Also update profileData so it gets saved on "Guardar"
                     setProfileData(prev => ({ ...prev, logo: base64String }));
-                    // Or instantly save to local storage for immediate persistence across the app:
-                    const saved = localStorage.getItem('cotiza_designer_profile');
-                    const currentData = saved ? JSON.parse(saved) : profileData;
-                    localStorage.setItem('cotiza_designer_profile', JSON.stringify({ ...currentData, logo: base64String }));
                   };
                   reader.readAsDataURL(file);
                 }
@@ -113,7 +183,11 @@ export default function PerfilPage() {
             />
           </div>
           <div className="text-center w-full">
-            {isEditingInfo ? (
+            {isLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : isEditingInfo ? (
               <div style={{ width: '100%', maxWidth: '24rem', margin: '0 auto', padding: '0.5rem 1rem' }}>
                 <input 
                   type="text"
@@ -147,6 +221,7 @@ export default function PerfilPage() {
               variant="ghost" 
               size="sm" 
               className="h-8 text-primary font-semibold hover:bg-primary/10"
+              disabled={isSaving}
               onClick={() => {
                 if (isEditingInfo) {
                   handleSaveProfile();
@@ -155,6 +230,7 @@ export default function PerfilPage() {
                 }
               }}
             >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {isEditingInfo ? 'Guardar' : 'Editar'}
             </Button>
           </div>

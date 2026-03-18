@@ -87,9 +87,7 @@ export default function PresupuestosPage() {
         };
       });
       
-      // Combine with local drafts if any (optional, but good for UX transitions)
-      const savedDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
-      setAllBudgets([...savedDrafts, ...formatted]);
+      setAllBudgets(formatted);
     }
     setLoading(false);
   };
@@ -99,22 +97,14 @@ export default function PresupuestosPage() {
       const supabase = createClient();
       
       // If it's a real Supabase ID (UUID usually), delete from DB
-      if (id.length > 20) { 
-        const { error } = await supabase.from('budgets').delete().eq('id', id);
-        if (error) {
-          toast.error("Error al eliminar el presupuesto");
-          return;
-        }
+      const { error } = await supabase.from('budgets').delete().eq('id', id);
+      if (error) {
+        toast.error("Error al eliminar el presupuesto");
+        return;
       }
 
       // Filter locally
       setAllBudgets(prev => prev.filter(budget => budget.id !== id));
-      
-      // Also remove from localStorage if it exists
-      const savedDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
-      const newDrafts = savedDrafts.filter((d: any) => d.id !== id);
-      localStorage.setItem('cotiza_drafts', JSON.stringify(newDrafts));
-      
       toast.success("Presupuesto eliminado");
     }
   };

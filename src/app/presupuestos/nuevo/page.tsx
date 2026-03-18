@@ -30,6 +30,7 @@ function PresupuestoForm() {
   const [clientName, setClientName] = useState(targetClient || '');
   const [clientEmail, setClientEmail] = useState(searchParams.get('email') || '');
   const [clientPhoto, setClientPhoto] = useState('');
+  const [allClients, setAllClients] = useState<any[]>([]);
   const defaultExpiresIn = searchParams.get('expiresIn') || '15';
   const [expirationDays, setExpirationDays] = useState(defaultExpiresIn);
   
@@ -37,107 +38,79 @@ function PresupuestoForm() {
   const [notes, setNotes] = useState(searchParams.get('notes') || defaultNotesText);
   const [tariffs, setTariffs] = useState<TarifaRegional[]>([]);
   const [items, setItems] = useState<{ id: number; name: string; price: string; quantity: number; serviceId?: string }[]>([
-    { id: 1, name: targetId ? `Servicios (Autocompletado visual)` : '', price: targetAmount || '', quantity: 1 }
+    { id: 1, name: targetId ? `Servicios (Cargando...)` : '', price: targetAmount || '', quantity: 1 }
   ]);
   
-  const draftId = useState(() => isEditing ? targetId : `draft-${Date.now()}`)[0];
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
     setTariffs(getCustomTariffs());
+    fetchInitialData();
   }, []);
 
-  // Sync with existing clients
-  useEffect(() => {
-    if (!clientName) {
-      setClientPhoto('');
-      return;
-    }
-    const savedClients = JSON.parse(localStorage.getItem('cotiza_clients') || '[]');
-    const existing = savedClients.find((c: any) => c.name.toLowerCase() === clientName.toLowerCase());
-    if (existing) {
-      setClientPhoto(existing.photo || '');
-      if (!clientEmail) setClientEmail(existing.email || '');
-    }
-  }, [clientName, clientEmail]);
+  const fetchInitialData = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-  useEffect(() => {
-    if (targetId && !initialLoadDone) {
-      // 1. Try to load from localStorage drafts first
-      const existingDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
-      const draft = existingDrafts.find((d: any) => d.id === targetId);
+    // Fetch Clients for lookup
+    const { data: clients } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('designer_id', user.id);
+    if (clients) setAllClients(clients);
 
-      if (draft && draft._rawData) {
-        setClientName(draft.client || targetClient || '');
-        setClientEmail(draft.clientEmail || searchParams.get('email') || '');
-        setItems(draft._rawData.items || [{ id: Date.now(), name: `Servicios (Autocompletado visual)`, price: targetAmount || '', quantity: 1}]);
-        setNotes(draft._rawData.notes || defaultNotesText);
-        setExpirationDays(draft._rawData.expiresIn || defaultExpiresIn);
-      } else {
-        // 2. Fallback to URL parameters if no draft exists
-        setClientName(targetClient || '');
-        setClientEmail(searchParams.get('email') || '');
-        setItems([{ 
-          id: Date.now(), 
-          name: `Servicios (Autocompletado visual)`, 
-          price: targetAmount || '', 
-          quantity: 1 
-        }]);
+    // If editing or duplicating, fetch existing budget data
+    if (targetId) {
+      const { data: budget, error } = await supabase
+        .from('budgets')
+        .select(`
+          *,
+          clients (*),
+          budget_versions (
+            *,
+            budget_items (*)
+          )
+        `)
+        .eq('id', targetId)
+        .single();
+
+      if (!error && budget) {
+        setClientName(budget.clients?.nombre || '');
+        setClientEmail(budget.clients?.email || '');
+        setExpirationDays(budget.validez_dias?.toString() || '15');
+        
+        const latestVersion = budget.budget_versions?.[0];
+        if (latestVersion) {
+          setNotes(latestVersion.condiciones || defaultNotesText);
+          if (latestVersion.budget_items?.length > 0) {
+            setItems(latestVersion.budget_items.map((item: any) => ({
+              id: item.id,
+              name: item.nombre,
+              price: item.precio_unitario.toString(),
+              quantity: item.cantidad,
+              serviceId: undefined // Could be mapped if needed
+            })));
+          }
+        }
       }
-      setInitialLoadDone(true);
-    } else if (!targetId && !initialLoadDone) {
-      setInitialLoadDone(true);
     }
-  }, [targetId, targetClient, targetAmount, searchParams, initialLoadDone, defaultNotesText, defaultExpiresIn]);
+    setInitialLoadDone(true);
+  };
 
-  // Auto-save logic
+  // Sync with selected client
   useEffect(() => {
-    if (!initialLoadDone) return;
-    
-    const timeoutId = setTimeout(() => {
-      // Calculate total amount
-      const currentAmount = items.reduce((acc, current) => acc + (parseFloat(current.price || '0') * current.quantity), 0);
-      
-      const draft = {
-        id: draftId,
-        folio: `COT-00${Math.floor(Math.random() * 100) + 10}`, // Random for mockup, will be DB generated
-        client: clientName || 'Borrador sin cliente',
-        clientEmail: clientEmail,
-        clientInitial: (clientName || 'B').charAt(0).toUpperCase(),
-        amount: `$${currentAmount.toLocaleString('es-AR')}`,
-        date: new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date()),
-        status: 'Borrador',
-        statusColor: 'text-muted-foreground bg-muted border-border',
-        // We save the raw data so we could potentially re-hydrate it fully later
-        _rawData: { items, notes, expiresIn: expirationDays }
-      };
-      
-      const existingDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
-      const filtered = existingDrafts.filter((d: any) => d.id !== draftId);
-      localStorage.setItem('cotiza_drafts', JSON.stringify([draft, ...filtered]));
-    }, 1500); // 1.5s debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [clientName, clientEmail, items, notes, expirationDays, draftId, initialLoadDone]);
+    if (!clientName || !allClients.length) return;
+    const existing = allClients.find((c: any) => c.nombre.toLowerCase() === clientName.toLowerCase());
+    if (existing) {
+      if (!clientEmail) setClientEmail(existing.email || '');
+      // If client photo was in DB, we'd set it here
+    }
+  }, [clientName, allClients, clientEmail]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setClientPhoto(base64String);
-        
-        // Also update in clients list if it exists
-        const savedClients = JSON.parse(localStorage.getItem('cotiza_clients') || '[]');
-        const updated = savedClients.map((c: any) => 
-          c.name.toLowerCase() === clientName.toLowerCase() ? { ...c, photo: base64String } : c
-        );
-        localStorage.setItem('cotiza_clients', JSON.stringify(updated));
-        toast.success('Foto actualizada');
-      };
-      reader.readAsDataURL(file);
-    }
+    // Client photos not yet fully implemented in Supabase Storage, placeholder for now
+    toast.info("Carga de fotos de clientes próximamente con Supabase Storage");
   };
 
   const addManualItem = () => {
@@ -483,13 +456,9 @@ function PresupuestoForm() {
                 await supabase.from('budget_items').insert(budgetItems);
               }
 
-              // 5. Clean up local draft
-              const existingDrafts = JSON.parse(localStorage.getItem('cotiza_drafts') || '[]');
-              const filtered = existingDrafts.filter((d: any) => d.id !== draftId);
-              localStorage.setItem('cotiza_drafts', JSON.stringify(filtered));
-
-              toast.success("Presupuesto generado y guardado");
-              router.push(`/presupuestos/${budget.id}?client=${encodeURIComponent(clientName || 'Cliente')}&email=${encodeURIComponent(clientEmail)}&service=${encodeURIComponent(items[0]?.name || 'Servicio')}&amount=${totalAmount}&notes=${encodeURIComponent(notes)}&expiresIn=${expirationDays}&createdAt=${Date.now()}`);
+              // 5. Success
+              toast.success(isEditing ? "Presupuesto actualizado" : "Presupuesto generado y guardado");
+              router.push(`/presupuestos/${budget.id}`);
             }}
           >
             {loading ? 'Guardando...' : 'Generar'}

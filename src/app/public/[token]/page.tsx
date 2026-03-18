@@ -1,226 +1,259 @@
 'use client';
 
-import { PageWrapper } from '@/components/layout/PageWrapper';
 import { Card } from '@/components/ui/card';
-import { FileText, Download, AlertCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useParams, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import tinycolor from 'tinycolor2';
-import { useTheme } from 'next-themes';
+import { createClient } from '@/lib/supabase/client';
+import { Loader2, CheckCircle2, AlertCircle, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export default function PublicPresupuestoPage() {
+export default function PublicBudgetPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const token = params.token as string;
-  const { theme } = useTheme();
   
-  // NOTE: In the real app, we will fetch this data from Supabase using the token.
-  // For the MVP UI mockup, we'll parse it from URL to maintain consistency.
-  const amountStr = searchParams.get('amount') || '145000';
-  const formattedAmount = `$${parseInt(amountStr).toLocaleString('es-AR')}`;
-  const customNotes = searchParams.get('notes') || 'El pago se realiza 50% por adelantado y 50% contra entrega.';
-  const idStr = searchParams.get('bid') || '1';
-  const id = parseInt(idStr);
-  const expiresIn = parseInt(searchParams.get('expiresIn') || '15');
-  const createdAtStr = searchParams.get('createdAt') || Date.now().toString();
-  const createdAt = parseInt(createdAtStr);
-  const clientNameStr = searchParams.get('client') || 'Acme Corp';
-  const clientEmailStr = searchParams.get('email') || '';
-  const serviceName = searchParams.get('service') || 'Diseño de Logotipo';
-  
-  const [isExpired, setIsExpired] = useState(false);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [mounted, setMounted] = useState(false);
-  const currentDate = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  const [loading, setLoading] = useState(true);
+  const [budget, setBudget] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [branding, setBranding] = useState<any>(null);
 
   useEffect(() => {
-    setMounted(true);
+    if (token) {
+      fetchBudget();
+    }
+  }, [token]);
 
-    // In a real scenario, this comes from the DB (the designer's profile bound to this budget)
-    // We mock it for the UI until backend integration is complete
-    setProfileData({
-      name: 'Design Studio',
-      subtitle: 'Diseño Gráfico & UI/UX',
-      primaryColor: '#6B5CFF',
-      fontFamily: 'Inter, sans-serif'
-    });
+  const fetchBudget = async () => {
+    setLoading(true);
+    const supabase = createClient();
     
-    const currentDateTimestamp = Date.now();
-    const expirationDateTimestamp = createdAt + (expiresIn * 24 * 60 * 60 * 1000);
-    if (currentDateTimestamp > expirationDateTimestamp) {
-      setIsExpired(true);
+    // 1. Fetch budget by token
+    const { data, error } = await supabase
+      .from('budgets')
+      .select(`
+        *,
+        clients (*),
+        designer_profiles (*),
+        budget_versions (
+          *,
+          budget_items (*)
+        )
+      `)
+      .eq('public_token', token)
+      .single();
+
+    if (error || !data) {
+      setError("No se pudo encontrar el presupuesto solicitado.");
+      setLoading(false);
+      return;
+    }
+
+    setBudget(data);
+
+    // 2. Fetch designer branding
+    const { data: brandingData } = await supabase
+      .from('designer_branding')
+      .select('*')
+      .eq('designer_id', data.designer_id)
+      .single();
+
+    setBranding(brandingData);
+
+    // 3. Track view (simple log)
+    try {
+      await supabase.from('budget_views').insert({
+        budget_id: data.id
+      });
+    } catch (e) {
+      console.error("View tracking failed", e);
     }
     
-    // Todo: Trigger "visto" metric tracking event via Supabase here
-  }, [expiresIn, createdAt]);
-
-  const designerName = profileData?.name || 'Design Studio';
-  const designerSubtitle = profileData?.subtitle || 'Diseño Gráfico & UI/UX';
-  const primaryColor = profileData?.primaryColor || '#6B5CFF'; 
-  const fontFamily = profileData?.fontFamily || 'Inter, sans-serif';
-  const logo = profileData?.logo || null;
-  const initials = designerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
-
-  // Color Contrast Adjustments based on active theme
-  const color = tinycolor(primaryColor);
-  const isDarkTheme = mounted && theme === 'dark';
-  
-  // Base background colors
-  const baseBg = isDarkTheme ? '#121212' : '#ffffff';
-  
-  // Find a readable version of the primary color against the base background
-  let readableColor = primaryColor;
-  
-  if (isDarkTheme) {
-    if (tinycolor.readability(primaryColor, baseBg) < 4.5) {
-      let tempColor = color.clone();
-      while (tinycolor.readability(tempColor, baseBg) < 4.5 && tempColor.getLuminance() < 0.95) {
-        tempColor.lighten(10);
-      }
-      readableColor = tempColor.toString();
-    }
-  } else {
-    if (tinycolor.readability(primaryColor, baseBg) < 4.5) {
-      let tempColor = color.clone();
-      while (tinycolor.readability(tempColor, baseBg) < 4.5 && tempColor.getLuminance() > 0.05) {
-        tempColor.darken(10);
-      }
-      readableColor = tempColor.toString();
-    }
-  }
-
-  const brightTextAndIconColor = readableColor;
-  const badgeBgColor = color.setAlpha(0.10).toRgbString();
-
-  const handleDownloadPdf = () => {
-    window.print();
+    setLoading(false);
   };
 
-  if (mounted && isExpired) {
+  if (loading) {
     return (
-      <PageWrapper showBottomNav={false} headerProps={{ title: "Enlace Expirado", showProfile: false, showNotifications: false }}>
-        <div className="flex flex-col items-center justify-center h-[70vh] p-6 text-center animate-in fade-in duration-500">
-          <div className="w-24 h-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-6">
-            <AlertCircle className="w-12 h-12" />
-          </div>
-          <h2 className="text-3xl font-bold mb-3">Presupuesto Expirado</h2>
-          <p className="text-muted-foreground mb-8 text-base max-w-md">
-            Este presupuesto ha superado su período de validez de {expiresIn} días. Por favor, contacta con <strong>{designerName}</strong> para solicitar una actualización.
-          </p>
-        </div>
-      </PageWrapper>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-muted/30">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground font-medium">Cargando presupuesto...</p>
+      </div>
     );
   }
 
+  if (error || !budget) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <AlertCircle className="h-16 w-16 text-destructive/50" />
+        <h1 className="text-2xl font-bold">Ups! Algo salió mal</h1>
+        <p className="text-muted-foreground max-w-xs">{error}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>Reintentar</Button>
+      </div>
+    );
+  }
+
+  const latestVersion = budget.budget_versions?.[0]; 
+  const designer = budget.designer_profiles;
+  const client = budget.clients;
+  const items = latestVersion?.budget_items || [];
+  
+  const primaryColor = branding?.color_principal || '#6B5CFF';
+  const fontFamily = branding?.tipografia || 'Inter';
+  const logo = branding?.logo_path;
+  
+  const color = tinycolor(primaryColor);
+  const badgeBgColor = color.setAlpha(0.10).toRgbString();
+  const initials = designer?.nombre?.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+
+  const formattedTotal = `$${(latestVersion?.total || 0).toLocaleString('es-AR')}`;
+  const dateStr = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(budget.created_at));
+
   return (
-    <PageWrapper
-      showBottomNav={false}
-      headerProps={{
-        title: "Cotización Privada",
-        showProfile: false,
-        showNotifications: false,
-        leftAction: (
-           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">C</span>
-            </div>
-            <h1 className="text-lg font-bold tracking-tight">CotizApp</h1>
-          </div>
-        )
-      }}
-    >
-      <div 
-        className="p-4 md:p-6 pb-32 print:pb-0 space-y-6 print:space-y-4 animate-in fade-in duration-700"
-        style={{ fontFamily: mounted ? fontFamily : 'inherit' }}
-      >
-        
-        {/* Designer Profile Presentation */}
-        <div className="text-center pt-4 pb-2 space-y-3 print:m-0 print:p-0">
-          <Avatar 
-            className="h-20 w-20 mx-auto ring-4 shadow-xl"
-            style={{ '--tw-ring-color': mounted ? `${primaryColor}33` : 'rgba(var(--primary), 0.2)' } as React.CSSProperties}
-          >
-            <AvatarImage src={mounted && logo ? logo : ""} />
-            <AvatarFallback 
-              className="text-white font-bold text-xl"
-              style={{ backgroundColor: mounted ? primaryColor : 'var(--card)' }}
-            >
-              {mounted ? initials : 'DS'}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="font-bold text-2xl tracking-tight text-foreground">{mounted ? designerName : 'Design Studio'}</h2>
-            <p className="font-medium text-sm" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}>Cotización COT-00{id} • {mounted ? designerSubtitle : 'Diseño Gráfico'}</p>
-          </div>
-        </div>
-
-        {/* Client Info Minimal */}
-        <div className="rounded-2xl border border-border/60 p-4 bg-muted/10 text-center">
-          <p className="text-sm text-muted-foreground mb-1">Preparado para</p>
-          <p className="font-semibold text-lg text-foreground">{clientNameStr}</p>
-          {clientEmailStr && <p className="text-sm text-muted-foreground">{clientEmailStr}</p>}
-          <p className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>{currentDate}</p>
-        </div>
-
-        {/* Services Detail Card */}
-        <Card className="p-0 overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-          <div className="p-5 border-b border-border/50 bg-gradient-to-br from-card to-muted/20">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <FileText className="w-4 h-4" style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }} />
-              Detalle de Servicios
-            </h3>
-          </div>
-          
-          <div className="divide-y divide-border/30">
-            <div className="p-5 flex justify-between items-start hover:bg-muted/10 transition-colors">
-              <div className="space-y-1.5 flex-1 pr-4">
-                <p className="font-semibold text-[15px]">{serviceName}</p>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">Servicio principal detallado en la cotización.</p>
-              </div>
-              <div className="text-right relative top-0.5">
-                <p className="font-bold text-[15px]">{formattedAmount}</p>
-              </div>
+    <div className="min-h-screen bg-muted/10 pb-20" style={{ fontFamily }}>
+      {/* Branding Header */}
+      <div className="bg-background border-b sticky top-0 z-10 shadow-sm">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 ring-2 ring-primary/10">
+              <AvatarImage src={logo || ""} />
+              <AvatarFallback style={{ backgroundColor: primaryColor }} className="text-white font-bold">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-left">
+              <p className="font-bold text-sm leading-tight">{designer?.nombre}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{designer?.experiencia || 'Diseño'}</p>
             </div>
           </div>
-          
-          <div 
-            className="p-6 border-t border-border/30 flex justify-between items-center rounded-b-[20px]"
-            style={{ backgroundColor: mounted ? badgeBgColor : 'rgba(var(--primary), 0.05)' }}
-          >
-            <span className="font-medium text-foreground tracking-wide uppercase text-sm">Total a pagar</span>
-            <span 
-              className="font-black text-3xl drop-shadow-sm"
-              style={{ color: mounted ? brightTextAndIconColor : 'var(--primary)' }}
-            >{formattedAmount} <span className="text-xl font-bold text-muted-foreground/80 ml-1">ARS</span></span>
+          <div className="hidden sm:block">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-tighter">Cotización Privada</span>
           </div>
-        </Card>
-
-        {/* Notes/Terms */}
-        <div className="px-2">
-          <h4 className="text-sm font-semibold mb-2">Términos y Condiciones / Notas</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-            {customNotes}
-          </p>
         </div>
-
       </div>
 
-      {/* Fixed Bottom Action for Public View (Download PDF) */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-background/90 backdrop-blur-xl border-t border-border z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] print:hidden">
-        <div className="w-full">
+      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6 mt-4">
+        {/* Status Banner */}
+        <div 
+          className="flex items-center justify-between p-4 rounded-2xl border"
+          style={{ backgroundColor: badgeBgColor, borderColor: `${primaryColor}22` }}
+        >
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5" style={{ color: primaryColor }} />
+            <div className="text-left">
+              <p className="font-bold text-sm" style={{ color: primaryColor }}>Presupuesto Oficial</p>
+              <p className="text-xs opacity-70" style={{ color: primaryColor }}>Vence en {budget.validez_dias} días</p>
+            </div>
+          </div>
           <Button 
-            variant="default" 
-            className="w-full text-white h-12"
-            style={mounted ? { backgroundColor: primaryColor } : undefined}
-            onClick={handleDownloadPdf}
+            variant="ghost" 
+            size="sm" 
+            className="text-xs font-bold" 
+            style={{ color: primaryColor }}
+            onClick={() => window.print()}
           >
-            <Download className="w-5 h-5 mr-2" />
-            Descargar PDF
+            <Download className="h-4 w-4 mr-2" /> PDF
           </Button>
         </div>
+
+        {/* Client & Info */}
+        <Card className="p-6 sm:p-8 flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row justify-between gap-6 pb-6 border-b border-border/50">
+            <div className="space-y-1 text-left">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Para</p>
+              <h2 className="text-2xl font-bold">{client?.nombre}</h2>
+              <p className="text-sm text-muted-foreground">{client?.empresa}</p>
+            </div>
+            <div className="sm:text-right text-left space-y-1 border-t sm:border-t-0 pt-4 sm:pt-0 border-border/30">
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Emisión</p>
+              <p className="text-sm font-medium">{dateStr}</p>
+              <p className="text-xs text-muted-foreground uppercase">Folio: COT-{budget.id.slice(0, 8).toUpperCase()}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 text-left">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <FileText className="h-4 w-4" /> Detalle del Proyecto
+            </h3>
+            <div className="bg-muted/30 rounded-2xl p-4 sm:p-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground mb-1 uppercase">Tipo de Proyecto</p>
+                <p className="font-semibold text-lg">{latestVersion?.project_type || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground mb-1 uppercase">Descripción</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {latestVersion?.project_description || 'Sin descripción.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          <div className="space-y-4 text-left">
+             <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Servicios e Inversión</h3>
+             <div className="border rounded-2xl overflow-hidden">
+                <div className="bg-muted/50 p-4 hidden sm:grid grid-cols-12 gap-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <div className="col-span-8">Servicio / Detalle</div>
+                  <div className="col-span-1 text-center">Cant.</div>
+                  <div className="col-span-3 text-right">Subtotal</div>
+                </div>
+                <div className="divide-y divide-border/30">
+                  {items.map((item: any) => (
+                    <div key={item.id} className="p-4 grid grid-cols-1 gap-1 sm:grid-cols-12 sm:gap-4 items-center">
+                      <div className="sm:col-span-8">
+                        <p className="font-semibold">{item.nombre}</p>
+                        {item.descripcion && <p className="text-xs text-muted-foreground mt-0.5">{item.descripcion}</p>}
+                      </div>
+                      <div className="sm:col-span-1 text-sm sm:text-center text-muted-foreground flex items-center gap-2 sm:block">
+                        <span className="sm:hidden font-medium text-[10px] uppercase">Cant: </span>{item.cantidad}
+                      </div>
+                      <div className="sm:col-span-3 text-right font-bold" style={{ color: primaryColor }}>
+                        ${item.subtotal?.toLocaleString('es-AR')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-6 bg-muted/20 flex flex-col items-end gap-1">
+                  <p className="text-xs font-medium text-muted-foreground">Total Inversión</p>
+                  <p className="text-3xl font-black" style={{ color: primaryColor }}>
+                    {formattedTotal} <span className="text-sm font-bold opacity-50">ARS</span>
+                  </p>
+                </div>
+             </div>
+          </div>
+
+          {/* Conditions */}
+          {latestVersion?.condiciones && (
+            <div className="space-y-3 pt-4 text-left border-t border-border/30">
+              <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Términos y Condiciones</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap leading-relaxed">
+                {latestVersion.condiciones}
+              </p>
+            </div>
+          )}
+        </Card>
+
+        {/* Action Bar for Mobile/Public */}
+        <div className="pt-8 flex flex-col items-center gap-6">
+           <div className="text-center space-y-4">
+             <p className="text-sm font-medium">¿Alguna duda sobre esta cotización?</p>
+             <div className="flex gap-4 justify-center">
+                <Button variant="outline" className="rounded-full px-6" render={<a href={`mailto:${designer?.email}`} />}>
+                  Enviar Email
+                </Button>
+                {branding?.redes_json?.instagram && (
+                  <Button variant="outline" className="rounded-full px-6" render={<a href={`https://instagram.com/${branding.redes_json.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" />}>
+                    Instagram
+                  </Button>
+                )}
+             </div>
+           </div>
+           
+           <p className="text-[10px] text-muted-foreground opacity-30 uppercase tracking-widest">
+             Generado digitalmente por CotizApp para {designer?.nombre}
+           </p>
+        </div>
       </div>
-    </PageWrapper>
+    </div>
   );
 }
