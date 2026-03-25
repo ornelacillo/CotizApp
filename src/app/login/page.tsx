@@ -32,7 +32,11 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : error.message);
+      if (error.message.includes('Email not confirmed') || error.message.includes('not verified')) {
+        setError('Por favor, verificá tu correo electrónico antes de iniciar sesión. Revisá tu bandeja de entrada o spam.');
+      } else {
+        setError(error.message === 'Invalid login credentials' ? 'Credenciales incorrectas' : error.message);
+      }
     } else {
       router.push('/dashboard');
       router.refresh();

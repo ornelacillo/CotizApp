@@ -15,6 +15,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   
   const router = useRouter();
 
@@ -59,10 +60,15 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (error) {
-      setError(error.message);
+      if (error.message.includes('rate limit')) {
+        setError('Excediste el límite de intentos. Por favor, esperá un rato antes de volver a intentar.');
+      } else if (error.message.includes('already registered')) {
+        setError('El correo electrónico ya está registrado.');
+      } else {
+        setError(error.message);
+      }
     } else {
-      router.push('/dashboard');
-      router.refresh();
+      setIsSuccess(true);
     }
   };
 
@@ -82,57 +88,72 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleRegister} className="space-y-4">
-          <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
-            <Input 
-              type="text" 
-              placeholder="Nombre completo" 
-              className="pl-12"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+        {isSuccess ? (
+          <div className="text-center space-y-4 bg-muted/30 p-6 rounded-xl border border-border mt-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Mail className="h-6 w-6 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">¡Cuenta creada con éxito!</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Te enviamos un correo a <span className="font-medium text-foreground">{email}</span>. 
+              Por favor revisá tu bandeja de entrada o carpeta de spam y hacé clic en el enlace para verificar tu cuenta y poder iniciar sesión.
+            </p>
+            <Button className="w-full mt-4" onClick={() => router.push('/login')}>
+              Ir a iniciar sesión
+            </Button>
           </div>
+        ) : (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <Input 
+                type="text" 
+                placeholder="Nombre completo" 
+                className="pl-12"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
 
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
-            <Input 
-              type="email" 
-              placeholder="Correo electrónico" 
-              className="pl-12"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="relative">
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
-            <Input 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Contraseña" 
-              className="pl-12 pr-12"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <button
-              type="button"
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground p-1"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-          
-          {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <Input 
+                type="email" 
+                placeholder="Correo electrónico" 
+                className="pl-12"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <Input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Contraseña" 
+                className="pl-12 pr-12"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground p-1"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
+            </div>
+            
+            {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
 
-          <Button type="submit" className="w-full mt-2" disabled={loading}>
-            {loading ? 'Registrando...' : 'Registrarse'}
-          </Button>
-        </form>
+            <Button type="submit" className="w-full mt-2" disabled={loading}>
+              {loading ? 'Registrando...' : 'Registrarse'}
+            </Button>
+          </form>
+        )}
 
         {/* Footer */}
         <p className="mt-10 text-center text-sm text-muted-foreground">

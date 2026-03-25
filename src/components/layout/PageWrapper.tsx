@@ -19,30 +19,32 @@ export function PageWrapper({
   ...props
 }: PageWrapperProps) {
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {showHeader && (
-        <div className="print:hidden">
-          <Header {...headerProps} />
-        </div>
-      )}
-      
-      {/* Mobile-first constraints: centering content on large screens */}
-      <main 
-        className={cn(
-          "flex-1 w-full",
-          showBottomNav ? "pb-24" : "pb-8", // extra padding if BottomNav is present
-          className
+    <div className="min-h-screen bg-muted/20 md:bg-black/40 flex justify-center">
+      <div className="w-full max-w-md min-h-screen bg-background relative shadow-2xl flex flex-col md:border-x md:border-border overflow-hidden">
+        {showHeader && (
+          <div className="print:hidden">
+            <Header {...headerProps} />
+          </div>
         )}
-        {...props}
-      >
-        {children}
-      </main>
+        
+        {/* Mobile-first constraints: centering content on large screens */}
+        <main 
+          className={cn(
+            "flex-1 w-full",
+            showBottomNav ? "pb-24" : "pb-8", // extra padding if BottomNav is present
+            className
+          )}
+          {...props}
+        >
+          {children}
+        </main>
 
-      {showBottomNav && (
-        <div className="print:hidden z-50">
-          <BottomNav />
-        </div>
-      )}
+        {showBottomNav && (
+          <div className="print:hidden z-50">
+            <BottomNav />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

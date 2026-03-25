@@ -7,13 +7,27 @@ import { Input } from '@/components/ui/input';
 import { Plus, Trash2, ChevronLeft, Layers, Info, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from '@/components/ui/dropdown-menu';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createClient } from '@/lib/supabase/client';
 import { regionalTariffs, getServicePricing, getCustomTariffs, TarifaRegional } from '@/lib/tarifarios';
 import { toast } from 'sonner';
+
+const getCategoryForService = (name: string) => {
+  const n = name.toLowerCase();
+  if (n.includes('web') || n.includes('html') || n.includes('sitio') || n.includes('landing')) return 'Web UI/UX';
+  if (n.includes('logo') || n.includes('identidad') || n.includes('naming') || n.includes('manual') || n.includes('slogan') || n.includes('lema') || n.includes('claim')) return 'Branding & Identidad';
+  if (n.includes('redes') || n.includes('social media') || n.includes('ig') || n.includes('fanpage') || n.includes('perfil') || n.includes('contenido') || n.includes('rrss')) return 'Redes Sociales';
+  if (n.includes('folleto') || n.includes('volante') || n.includes('flyer') || n.includes('aviso') || n.includes('cartel') || n.includes('banner') || n.includes('ploteado') || n.includes('señalético') || n.includes('cenefa')) return 'Publicitario y Vía Pública';
+  if (n.includes('revista') || n.includes('libro') || n.includes('catálogo') || n.includes('editorial') || n.includes('página') || n.includes('almanaque') || n.includes('tapa')) return 'Editorial';
+  if (n.includes('envase') || n.includes('etiqueta') || n.includes('packaging')) return 'Packaging';
+  if (n.includes('ilustración') || n.includes('3d') || n.includes('animación') || n.includes('digitalización') || n.includes('personaje') || n.includes('render') || n.includes('signos') || n.includes('infografía')) return 'Ilustración & 3D';
+  if (n.includes('papelería') || n.includes('tarjeta') || n.includes('hoja') || n.includes('sobre') || n.includes('carpeta') || n.includes('certificado') || n.includes('postal')) return 'Papelería';
+  if (n.includes('merchandising') || n.includes('remera') || n.includes('calco') || n.includes('lapicera') || n.includes('pad') || n.includes('taza') || n.includes('bandera') || n.includes('uniforme') || n.includes('prenda')) return 'Merchandising';
+  return 'Otros Servicios';
+};
 
 function PresupuestoForm() {
   const router = useRouter();
@@ -119,7 +133,7 @@ function PresupuestoForm() {
 
   const adCatalogItem = (catalogId: string | null) => {
     if (!catalogId) return;
-    const service = regionalTariffs.find(s => s.id === catalogId);
+    const service = tariffs.find(s => s.id === catalogId);
     const pricing = getServicePricing(catalogId);
     if (service && pricing) {
       // If the first item is empty, overwrite it. Otherwise, prepend.
@@ -136,6 +150,13 @@ function PresupuestoForm() {
       }
     }
   };
+
+  const groupedTariffs = tariffs.reduce((acc, service) => {
+    const cat = getCategoryForService(service.name);
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(service);
+    return acc;
+  }, {} as Record<string, TarifaRegional[]>);
 
   const removeItem = (id: number) => {
     if (items.length > 1) {
@@ -232,22 +253,35 @@ function PresupuestoForm() {
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 Agregar de catálogo
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="max-h-[300px] overflow-y-auto w-[320px] sm:w-[400px] border-border/50 bg-popover/95 backdrop-blur-md">
-                {regionalTariffs.map(service => {
-                  const pricing = getServicePricing(service.id)!;
-                  return (
-                    <DropdownMenuItem 
-                      key={service.id} 
-                      onClick={() => adCatalogItem(service.id)}
-                      className="flex justify-between items-center cursor-pointer p-2.5 hover:bg-accent/50 focus:bg-accent/50"
-                    >
-                      <span className="truncate mr-4 font-semibold text-sm">{service.name}</span>
-                      <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap bg-muted px-1.5 py-0.5 rounded-sm">
-                        Desde ${pricing.min.toLocaleString('es-AR')}
-                      </span>
-                    </DropdownMenuItem>
-                  );
-                })}
+              <DropdownMenuContent className="max-h-[60vh] overflow-y-auto w-[320px] sm:w-[400px] border-border/50 bg-popover/95 backdrop-blur-md p-1.5 rounded-xl shadow-xl">
+                {Object.entries(groupedTariffs).map(([category, svcs]) => (
+                  <DropdownMenuSub key={category}>
+                    <DropdownMenuSubTrigger className="py-2.5 px-3 rounded-lg mb-1">
+                      <Layers className="w-4 h-4 mr-2 text-primary" />
+                      <span className="font-semibold text-[14px]">{category}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-[300px] sm:w-[360px] max-h-[50vh] overflow-y-auto p-1.5 shadow-xl border-border/60">
+                      {svcs.map(service => {
+                        const pricing = getServicePricing(service.id);
+                        if (!pricing) return null;
+                        return (
+                          <DropdownMenuItem 
+                            key={service.id} 
+                            onClick={() => adCatalogItem(service.id)}
+                            className="flex flex-col items-start cursor-pointer p-3 hover:bg-accent/60 focus:bg-accent/60 mb-1 rounded-md transition-colors"
+                          >
+                            <span className="whitespace-normal break-words leading-tight font-semibold text-[13px] text-left">
+                              {service.name}
+                            </span>
+                            <span className="text-[11px] font-bold text-primary mt-1.5 bg-primary/10 px-2 py-0.5 rounded border border-primary/20 self-start">
+                              Desde ${pricing.min.toLocaleString('es-AR')}
+                            </span>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

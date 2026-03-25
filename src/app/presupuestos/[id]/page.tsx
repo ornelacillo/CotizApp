@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, Edit2, Copy, Send, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import tinycolor from 'tinycolor2';
 import { useTheme } from 'next-themes';
@@ -14,47 +14,41 @@ import { createClient } from '@/lib/supabase/client';
 
 export default function PresupuestoDetallePage() {
   const params = useParams();
-  const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params.id as string;
   const { theme } = useTheme();
-  const customNotes = searchParams.get('notes') || 'El pago se realiza 50% por adelantado y 50% contra entrega. El presupuesto tiene una validez de 15 días desde la fecha de emisión. Los tiempos de entrega comienzan a correr una vez efectuado el anticipo.';
-  const expiresIn = searchParams.get('expiresIn') || '15';
-  const createdAt = searchParams.get('createdAt') || Date.now().toString();
-  const currentDate = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-  const clientNameStr = searchParams.get('client') || 'Acme Corp';
-  const clientEmailStr = searchParams.get('email') || '';
-  const serviceName = searchParams.get('service') || 'Diseño de Logotipo';
-  const amountStr = searchParams.get('amount') || '145000';
-  const formattedAmount = `$${parseInt(amountStr).toLocaleString('es-AR')}`;
-  const clientInitialStr = clientNameStr.charAt(0).toUpperCase();
-
+  const [budgetData, setBudgetData] = useState<any>(null);
   const [profileData, setProfileData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setMounted(true);
-    fetchProfile();
-  }, []);
+    fetchData();
+  }, [id]);
 
-  const fetchProfile = async () => {
+  const fetchData = async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
 
-    // Fetch Profile
-    const { data: profile } = await supabase
-      .from('designer_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    // Fetch Branding
-    const { data: branding } = await supabase
-      .from('designer_branding')
-      .select('*')
-      .eq('designer_id', user.id)
-      .single();
+    // Fetch Profile & Branding
+    const [ { data: profile }, { data: branding }, { data: budget } ] = await Promise.all([
+      supabase.from('designer_profiles').select('*').eq('id', user.id).single(),
+      supabase.from('designer_branding').select('*').eq('designer_id', user.id).single(),
+      supabase.from('budgets').select(`
+        *,
+        clients (*),
+        budget_versions (
+          *,
+          budget_items (*)
+        )
+      `).eq('id', id).single()
+    ]);
 
     if (profile && branding) {
       setProfileData({
@@ -65,25 +59,40 @@ export default function PresupuestoDetallePage() {
         logo: branding.logo_path || ''
       });
     }
+
+    if (budget) {
+      setBudgetData(budget);
+    }
+    setLoading(false);
   };
 
   const designerName = profileData?.name || 'Design Studio';
   const designerSubtitle = profileData?.subtitle || 'Diseño Gráfico & UI/UX';
-  const primaryColor = profileData?.primaryColor || '#6B5CFF'; // Use actual default instead of CSS var for tinycolor
+  const primaryColor = profileData?.primaryColor || '#6B5CFF';
   const fontFamily = profileData?.fontFamily || 'Inter, sans-serif';
   const logo = profileData?.logo || null;
   const initials = designerName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
 
-  // Color Contrast Adjustments based on active theme
+  const budgetVersion = budgetData?.budget_versions?.[0];
+  const items = budgetVersion?.budget_items?.sort((a: any, b: any) => a.orden - b.orden) || [];
+  const customNotes = budgetVersion?.condiciones || 'El pago se realiza 50% por adelantado...';
+  const expiresIn = budgetData?.validez_dias?.toString() || '15';
+  
+  const createdDateObj = budgetData ? new Date(budgetData.created_at) : new Date();
+  const currentDate = new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }).format(createdDateObj);
+
+  const clientNameStr = budgetData?.clients?.nombre || 'Cliente Final';
+  const clientEmailStr = budgetData?.clients?.email || '';
+  const totalAmount = budgetData?.total_amount || 0;
+  const formattedAmount = `$${totalAmount.toLocaleString('es-AR')}`;
+  const clientInitialStr = clientNameStr.charAt(0).toUpperCase();
+
+  // Color Contrast Adjustments
   const color = tinycolor(primaryColor);
   const isDarkTheme = mounted && theme === 'dark';
-  
-  // Base background colors
   const baseBg = isDarkTheme ? '#121212' : '#ffffff';
   
-  // Find a readable version of the primary color against the base background
   let readableColor = primaryColor;
-  
   if (isDarkTheme) {
     if (tinycolor.readability(primaryColor, baseBg) < 4.5) {
       let tempColor = color.clone();
@@ -106,24 +115,29 @@ export default function PresupuestoDetallePage() {
   const badgeBgColor = color.setAlpha(0.10).toRgbString();
 
   const handleDownloadPdf = () => {
-    // Native print dialogue is the most robust way to generate a PDF, 
-    // especially with modern CSS level 4 colors (like oklab in Tailwind v4)
     window.print();
   };
+
+  if (loading || !mounted) {
+    return (
+      <PageWrapper showBottomNav={false}>
+        <div className="flex items-center justify-center p-8 h-screen border-t border-border">
+          <p className="text-muted-foreground animate-pulse text-sm">Cargando presupuesto...</p>
+        </div>
+      </PageWrapper>
+    );
+  }
 
   return (
     <PageWrapper
       showBottomNav={false}
       headerProps={{
-        title: `Detalle COT-00${id}`,
+        title: `Detalle COT-00${id.substring(0,4)}`,
         showProfile: false,
         showNotifications: false,
         leftAction: (
           <div className="flex items-center gap-2">
-            <Link 
-              href={`/presupuestos/nuevo?edit=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} 
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Link href={`/presupuestos`} className="text-muted-foreground hover:text-foreground">
               <ChevronLeft className="h-6 w-6" />
             </Link>
             <h1 className="text-[20px] font-bold tracking-tight">Detalle</h1>
@@ -202,16 +216,18 @@ export default function PresupuestoDetallePage() {
           </div>
           
           <div className="divide-y divide-border/50">
-            <div className="p-4 flex justify-between items-start">
-              <div className="space-y-1">
-                <p className="font-medium">{serviceName}</p>
-                <p className="text-xs text-muted-foreground">Servicio principal detallado en la cotización.</p>
+            {items.map((item: any) => (
+              <div key={item.id} className="p-4 flex justify-between items-start">
+                <div className="space-y-1">
+                  <p className="font-medium">{item.nombre}</p>
+                  <p className="text-xs text-muted-foreground">{item.descripcion || 'Servicio detallado en la cotización.'}</p>
+                </div>
+                <div className="text-right pl-4">
+                  <p className="font-bold">${item.precio_unitario.toLocaleString('es-AR')}</p>
+                  <p className="text-xs text-muted-foreground">{item.cantidad} unid.</p>
+                </div>
               </div>
-              <div className="text-right pl-4">
-                <p className="font-bold">{formattedAmount}</p>
-                <p className="text-xs text-muted-foreground">1 unid.</p>
-              </div>
-            </div>
+            ))}
           </div>
           
           <div 
@@ -250,13 +266,13 @@ export default function PresupuestoDetallePage() {
       {/* Fixed Bottom Actions */}
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-safe bg-background/80 backdrop-blur-md border-t border-border z-40 print:hidden">
         <div className="w-full grid grid-cols-4 gap-1">
-          <Link href={`/presupuestos/nuevo?edit=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} className="contents">
+          <Link href={`/presupuestos/nuevo?edit=${id}`} className="contents">
             <Button variant="ghost" className="flex flex-col gap-1 h-14 p-1 text-primary hover:bg-primary/10 hover:text-primary">
               <Edit2 className="h-5 w-5" />
               <span className="text-[10px] font-medium">Editar</span>
             </Button>
           </Link>
-          <Link href={`/presupuestos/nuevo?duplicate=${id}&client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}`} className="contents">
+          <Link href={`/presupuestos/nuevo?duplicate=${id}`} className="contents">
             <Button variant="ghost" className="flex flex-col gap-1 h-14 p-1 text-primary hover:bg-primary/10 hover:text-primary">
               <Copy className="h-5 w-5" />
               <span className="text-[10px] font-medium">Duplicar</span>
@@ -270,7 +286,7 @@ export default function PresupuestoDetallePage() {
             <Download className="h-5 w-5" />
             <span className="text-[10px] font-medium">PDF</span>
           </Button>
-          <Link href={`/presupuestos/${id}/generado?client=${encodeURIComponent(clientNameStr)}&email=${encodeURIComponent(clientEmailStr)}&service=${encodeURIComponent(serviceName)}&amount=${amountStr}&notes=${encodeURIComponent(customNotes)}&expiresIn=${expiresIn}&createdAt=${createdAt}`} className="contents">
+          <Link href={`/presupuestos/${id}/generado`} className="contents">
             <Button className="flex flex-col gap-1 h-14 p-1 rounded-xl shadow-md">
               <Send className="h-4 w-4" />
               <span className="text-[10px] font-medium">Compartir</span>
