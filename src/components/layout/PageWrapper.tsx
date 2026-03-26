@@ -19,8 +19,8 @@ export function PageWrapper({
   ...props
 }: PageWrapperProps) {
   return (
-    <div className="min-h-screen w-full bg-muted/20 md:bg-black/40 flex justify-center">
-      <div className="w-full max-w-md min-h-screen bg-background relative shadow-2xl flex flex-col md:border-x md:border-border overflow-hidden">
+    <div className="min-h-screen w-full bg-muted/20 md:bg-black/40">
+      <div className="w-full max-w-md mx-auto min-h-screen bg-background relative shadow-2xl flex flex-col md:border-x md:border-border overflow-x-hidden">
         {showHeader && (
           <div className="print:hidden">
             <Header {...headerProps} />
