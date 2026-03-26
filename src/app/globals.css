@@ -97,13 +97,6 @@
     --radius-md: 1rem;     /* 16px */
     --radius-lg: 1.25rem;  /* 20px */
     --radius-xl: 1.5rem;   /* 24px */
-    
-    /* Custom spacing from guidelines */
-    --spacing-xs: 4px;
-    --spacing-sm: 8px;
-    --spacing-md: 16px;
-    --spacing-lg: 24px;
-    --spacing-xl: 32px;
 }
 
 @layer base {
