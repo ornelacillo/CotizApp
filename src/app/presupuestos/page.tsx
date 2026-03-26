@@ -134,7 +134,7 @@ export default function PresupuestosPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input 
-                placeholder="Buscar cliente o folio..." 
+                placeholder="Buscar cliente..." 
                 className="pl-9 h-11 bg-card border-none"
               />
             </div>
