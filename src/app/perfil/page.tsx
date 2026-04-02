@@ -13,6 +13,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { deleteAccount } from '@/app/actions/deleteAccount';
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -23,6 +25,10 @@ export default function PerfilPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [isEditingInfo, setIsEditingInfo] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -128,6 +134,19 @@ export default function PerfilPage() {
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'ELIMINAR') return;
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+      toast.success("Cuenta eliminada correctamente.");
+      router.push('/login');
+    } catch (e: any) {
+      toast.error(e.message || "Error al eliminar la cuenta");
+      setIsDeleting(false);
+    }
   };
 
   const isDark = theme === 'dark';
@@ -409,13 +428,59 @@ export default function PerfilPage() {
 
         {/* Danger Zone */}
         <section className="space-y-4 pt-4 border-t border-border/30">
-          <Button variant="outline" className="w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2 h-14 rounded-2xl" onClick={handleLogout}>
+          <Button variant="outline" className="w-full border-border/30 hover:bg-muted/50 text-foreground gap-2 h-14 rounded-2xl" onClick={handleLogout}>
             <LogOut className="h-5 w-5" />
             Cerrar sesión
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive gap-2 h-14 rounded-2xl" 
+            onClick={() => setIsDeleteOpen(true)}
+          >
+            <Trash2 className="h-5 w-5" />
+            Eliminar cuenta y datos
           </Button>
         </section>
 
       </div>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-destructive/30">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-destructive">Zona de Peligro</DialogTitle>
+            <DialogDescription>
+              Esta acción no se puede deshacer. Eliminará permanentemente tu cuenta, así como todas tus cotizaciones, clientes registrados y configuraciones visuales de nuestros servidores de forma inmediata.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Por favor, escribí <strong className="select-none text-destructive uppercase">ELIMINAR</strong> para confirmar:</label>
+              <Input 
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="bg-muted/50 border-destructive/50 focus-visible:ring-destructive"
+                placeholder="Escribe ELIMINAR acá"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => {setIsDeleteOpen(false); setDeleteConfirmText('');}} className="rounded-full">
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleDeleteAccount} 
+              disabled={isDeleting || deleteConfirmText !== 'ELIMINAR'} 
+              variant="destructive"
+              className="rounded-full px-8"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Eliminar definitivamente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageWrapper>
   );
 }
