@@ -443,7 +443,17 @@ function PresupuestoForm() {
                   })
                   .select()
                   .single();
-                if (!clientErr) clientId = newClient.id;
+                  
+                if (clientErr) {
+                  if (clientErr.code === 'P9002') {
+                    toast.error("Límite alcanzado: Superaste el límite de clientes creadados por hora (20). Intentá de nuevo más tarde.");
+                  } else {
+                    toast.error("Error al crear cliente automáticamente");
+                  }
+                  setLoading(false);
+                  return;
+                }
+                clientId = newClient.id;
               }
 
               // 2. Create Budget
@@ -461,7 +471,11 @@ function PresupuestoForm() {
                 .single();
 
               if (budgetErr) {
-                toast.error("Error al guardar el presupuesto");
+                if (budgetErr.code === 'P9001') {
+                  toast.error("Límite alcanzado: Has creado el máximo de presupuestos permitidos por hora (15). Por favor, esperá un momento antes de crear otro.");
+                } else {
+                  toast.error("Error al guardar el presupuesto");
+                }
                 setLoading(false);
                 return;
               }

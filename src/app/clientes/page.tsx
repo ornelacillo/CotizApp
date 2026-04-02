@@ -96,7 +96,11 @@ export default function ClientesPage() {
       .single();
 
     if (error) {
-      toast.error("Error al crear cliente");
+      if (error.code === 'P9002') {
+        toast.error("Límite alcanzado: Superaste el límite de clientes creados por hora (20). Intentá de nuevo más tarde.");
+      } else {
+        toast.error("Error al crear cliente");
+      }
     } else {
       setClients([data, ...clients]);
       setIsNewClientOpen(false);
