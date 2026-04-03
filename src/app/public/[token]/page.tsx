@@ -8,6 +8,7 @@ import tinycolor from 'tinycolor2';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2, CheckCircle2, AlertCircle, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getBudgetByToken } from '@/app/actions/getBudgetByToken';
 
 export default function PublicBudgetPage() {
   const params = useParams();
@@ -26,50 +27,28 @@ export default function PublicBudgetPage() {
 
   const fetchBudget = async () => {
     setLoading(true);
-    const supabase = createClient();
     
-    // 1. Fetch budget by token
-    const { data, error } = await supabase
-      .from('budgets')
-      .select(`
-        *,
-        clients (*),
-        designer_profiles (*),
-        budget_versions (
-          *,
-          budget_items (*)
-        )
-      `)
-      .eq('public_token', token)
-      .single();
-
-    if (error || !data) {
-      setError("No se pudo encontrar el presupuesto solicitado.");
-      setLoading(false);
-      return;
-    }
-
-    setBudget(data);
-
-    // 2. Fetch designer branding
-    const { data: brandingData } = await supabase
-      .from('designer_branding')
-      .select('*')
-      .eq('designer_id', data.designer_id)
-      .single();
-
-    setBranding(brandingData);
-
-    // 3. Track view (simple log)
     try {
-      await supabase.from('budget_views').insert({
-        budget_id: data.id
-      });
-    } catch (e) {
-      console.error("View tracking failed", e);
+      const { budget: data, branding: brandingData } = await getBudgetByToken(token);
+      
+      setBudget(data);
+      setBranding(brandingData);
+
+      // Track view (simple log)
+      try {
+        const supabase = createClient();
+        await supabase.from('budget_views').insert({
+          budget_id: data.id
+        });
+      } catch (e) {
+        console.error("View tracking failed", e);
+      }
+      
+    } catch (err: any) {
+      setError(err.message || "No se pudo encontrar el presupuesto solicitado.");
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   if (loading) {
